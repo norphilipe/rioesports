@@ -18,7 +18,8 @@ create policy "profiles_update_own" on public.profiles
   using (id = auth.uid())
   with check (id = auth.uid());
 
--- Defensive trigger function for future team membership changes.
+-- Defensive helper for team membership checks. The canonical schema uses
+-- profile_id, not user_id, because auth.users and public.profiles share IDs.
 create or replace function public.current_user_is_team_member(target_team_id uuid)
 returns boolean
 language sql
@@ -30,7 +31,8 @@ as $$
     select 1
     from public.team_members tm
     where tm.team_id = target_team_id
-      and tm.user_id = auth.uid()
+      and tm.profile_id = auth.uid()
+      and tm.status = 'active'
   );
 $$;
 
