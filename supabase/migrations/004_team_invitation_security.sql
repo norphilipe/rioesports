@@ -5,16 +5,16 @@ begin;
 
 alter table if exists public.team_invitations enable row level security;
 
--- Invitations are visible only to their recipient or members of the inviting team.
+-- Invitations are visible only to their recipient or active members of the inviting team.
 drop policy if exists "team_invitations_select_relevant" on public.team_invitations;
 create policy "team_invitations_select_relevant" on public.team_invitations
   for select to authenticated
   using (
-    invited_user_id = auth.uid()
+    invited_profile_id = auth.uid()
     or public.current_user_is_team_member(team_id)
   );
 
--- Only existing team members may create invitations.
+-- Only existing active team members may create invitations.
 drop policy if exists "team_invitations_insert_members" on public.team_invitations;
 create policy "team_invitations_insert_members" on public.team_invitations
   for insert to authenticated
@@ -24,7 +24,7 @@ create policy "team_invitations_insert_members" on public.team_invitations
 drop policy if exists "team_invitations_update_recipient" on public.team_invitations;
 create policy "team_invitations_update_recipient" on public.team_invitations
   for update to authenticated
-  using (invited_user_id = auth.uid())
-  with check (invited_user_id = auth.uid());
+  using (invited_profile_id = auth.uid())
+  with check (invited_profile_id = auth.uid());
 
 commit;
