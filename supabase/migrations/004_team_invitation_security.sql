@@ -8,42 +8,13 @@
 -- ----------------------------------------------------------------
 -- Team membership integrity
 -- ----------------------------------------------------------------
--- A player can belong to multiple teams, but a team must not contain
--- more than one active membership for the same profile.
-create unique index if not exists idx_team_members_one_active_membership
-  on public.team_members(team_id, profile_id)
-  where status = 'active';
-
--- Prevent impossible membership timestamps.
+-- The historical schema already guarantees one row per team/profile.
+-- This constraint adds temporal consistency for memberships.
 alter table public.team_members
   drop constraint if exists team_members_valid_membership_dates;
 alter table public.team_members
   add constraint team_members_valid_membership_dates
   check (left_at is null or left_at >= joined_at);
-
--- ----------------------------------------------------------------
--- Team administration helper
--- ----------------------------------------------------------------
-create or replace function private.is_team_member(
-  p_team_id uuid,
-  p_profile_id uuid
-)
-returns boolean
-language sql
-security definer
-stable
-set search_path = ''
-as $$
-  select exists (
-    select 1
-    from public.team_members tm
-    where tm.team_id = p_team_id
-      and tm.profile_id = p_profile_id
-      and tm.status = 'active'
-  );
-$$;
-
-revoke all on function private.is_team_member(uuid, uuid) from public, anon, authenticated;
 
 -- ----------------------------------------------------------------
 -- Invitation lifecycle integrity
@@ -53,12 +24,13 @@ create unique index if not exists idx_team_invitations_one_pending
   on public.team_invitations(team_id, invited_profile_id)
   where status = 'pending';
 
--- Recipients can only transition a pending invitation to accepted or
--- declined. Identity fields remain protected by migration 002.
+-- Recipients may only transition pending invitations to accepted or
+-- declined. Cancellation is an administrative operation and therefore
+-- cannot be performed through the recipient response policy.
 create or replace function private.validate_invitation_response()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 begin
@@ -90,9 +62,9 @@ execute function private.validate_invitation_response();
 -- ----------------------------------------------------------------
 -- Controlled invitation acceptance
 -- ----------------------------------------------------------------
--- Accepting an invitation is a server-owned transactional operation.
--- The function is intentionally not exposed to client roles; a future
--- trusted server action may call it with elevated credentials.
+-- Accepting an invitation and creating membership must happen inside
+-- one transaction. The function is intentionally not exposed to API
+-- client roles; a future trusted server operation may invoke it.
 create or replace function private.accept_team_invitation(
   p_invitation_id uuid,
   p_profile_id uuid
@@ -117,23 +89,30 @@ begin
     raise exception 'pending invitation not found';
   end if;
 
+  -- One row per team/profile is enforced by the historical schema.
+  -- An existing departed membership can be reactivated safely.
   insert into public.team_members (
     team_id,
     profile_id,
     role,
     is_admin,
-    status
+    status,
+    joined_at,
+    left_at
   )
   values (
     v_invitation.team_id,
     v_invitation.invited_profile_id,
     v_invitation.role,
     false,
-    'active'
+    'active',
+    now(),
+    null
   )
   on conflict (team_id, profile_id) do update
   set role = excluded.role,
       status = 'active',
+      joined_at = excluded.joined_at,
       left_at = null;
 
   update public.team_invitations
@@ -149,15 +128,10 @@ revoke all on function private.accept_team_invitation(uuid, uuid) from public, a
 -- RLS policy tightening
 -- ----------------------------------------------------------------
 -- Direct client creation of memberships bypasses the invitation flow.
--- Remove the permissive policy so future membership changes happen
--- through controlled server operations.
+-- Remove the permissive policy so membership changes happen through
+-- dedicated server-owned operations.
 drop policy if exists "Team admins can add members" on public.team_members;
 
--- Team administrators must not freely rewrite another member's identity
--- or privilege level through a generic UPDATE. Remove the broad client
--- update policy until dedicated server-side operations are introduced.
+-- Administrators must not freely rewrite another member's identity,
+-- role or privilege level through a generic UPDATE.
 drop policy if exists "Team admins can update members" on public.team_members;
-
--- The invitation recipient can no longer mutate arbitrary response
--- timestamps or perform repeated status transitions; the trigger above
--- validates the only permitted transition.
