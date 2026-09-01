@@ -1,7 +1,16 @@
 import type { MatchmakingQueueEntry, QueueActionResult } from "./matchmaking";
 
+type RpcResult = {
+  data: MatchmakingQueueEntry | null;
+  error: { message: string } | null;
+};
+
+type QueueRpcClient = {
+  rpc: (name: string, args: Record<string, string>) => Promise<RpcResult>;
+};
+
 export async function joinCompetitiveQueue(
-  client: { rpc: (name: string, args: Record<string, string>) => Promise<{ data: MatchmakingQueueEntry | null; error: { message: string } | null }> },
+  client: QueueRpcClient,
   queueModeId: string,
   playerGameProfileId: string,
 ): Promise<QueueActionResult> {
@@ -18,7 +27,7 @@ export async function joinCompetitiveQueue(
 }
 
 export async function leaveCompetitiveQueue(
-  client: { rpc: (name: string, args: Record<string, string>) => Promise<{ data: MatchmakingQueueEntry | null; error: { message: string } | null }> },
+  client: QueueRpcClient,
   queueEntryId: string,
 ): Promise<QueueActionResult> {
   const { data, error } = await client.rpc("leave_matchmaking_queue", {
