@@ -91,6 +91,17 @@ export default async function PerfilPage() {
                         ? "Vinculação obrigatória para participar do ambiente competitivo."
                         : "Provider opcional para ampliar a confiança dos dados competitivos."}
                   </p>
+                  {provider.key === "steam" && !verified ? (
+                    <a
+                      href="/api/competitive/steam/start"
+                      className="mt-5 inline-flex rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black uppercase tracking-wide text-black transition hover:bg-cyan-300"
+                    >
+                      Vincular Steam
+                    </a>
+                  ) : null}
+                  {provider.key === "steam" && verified ? (
+                    <p className="mt-5 text-xs text-emerald-300/80">Identidade competitiva permanente.</p>
+                  ) : null}
                 </div>
               );
             })}
