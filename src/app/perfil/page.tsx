@@ -19,26 +19,16 @@ export default async function PerfilPage() {
   const supabase = await createClient();
 
   const [{ data: profile }, { data: identities }, { data: competitiveState }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("username, display_name, avatar_url, bio, city, state_code")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("competitive_identities")
-      .select("provider, external_id, external_username, status, data_available, verified_at, last_verified_at")
-      .eq("user_id", user.id),
-    supabase
-      .from("player_competitive_state")
-      .select("rsi, confidence_score, confidence_level, faceit_ban_detected, competitive_lock_reason, calculated_at")
-      .eq("user_id", user.id)
-      .maybeSingle(),
+    supabase.from("profiles").select("username, display_name, avatar_url, bio, city, state_code").eq("id", user.id).maybeSingle(),
+    supabase.from("competitive_identities").select("provider, external_id, external_username, status, data_available, verified_at, last_verified_at").eq("user_id", user.id),
+    supabase.from("player_competitive_state").select("rsi, confidence_score, confidence_level, faceit_ban_detected, competitive_lock_reason, calculated_at").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const identityList = (identities ?? []) as CompetitiveIdentity[];
   const identityByProvider = new Map(identityList.map((identity) => [identity.provider, identity]));
   const state = competitiveState as PlayerCompetitiveState | null;
   const confidence = CONFIDENCE_COPY[(state?.confidence_level ?? "low") as RsiConfidenceLevel];
+  const steamVerified = identityByProvider.get("steam")?.status === "verified";
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
@@ -58,9 +48,7 @@ export default async function PerfilPage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-400">Competitive Identity</p>
               <h2 className="mt-3 text-2xl font-black">Sua identidade competitiva</h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-white/55">
-                Steam é a identidade obrigatória. FACEIT e Leetify fortalecem a confiança dos dados usados pelo RSI.
-              </p>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-white/55">Steam é a identidade obrigatória. FACEIT e Leetify fortalecem a confiança dos dados usados pelo RSI.</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/20 px-5 py-4 sm:min-w-40">
               <span className="block text-xs font-bold uppercase tracking-wider text-white/35">RSI Confidence</span>
@@ -80,38 +68,23 @@ export default async function PerfilPage() {
                 <div key={provider.key} className="rounded-xl border border-white/10 bg-black/20 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <strong>{provider.label}</strong>
-                    <span className={`text-xs font-bold uppercase tracking-wider ${verified ? "text-emerald-300" : "text-white/35"}`}>
-                      {verified ? "Verificada" : identity ? "Pendente" : "Não vinculada"}
-                    </span>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${verified ? "text-emerald-300" : "text-white/35"}`}>{verified ? "Verificada" : identity ? "Pendente" : "Não vinculada"}</span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-white/45">
-                    {identity?.external_username
-                      ? identity.external_username
-                      : provider.required
-                        ? "Vinculação obrigatória para participar do ambiente competitivo."
-                        : "Provider opcional para ampliar a confiança dos dados competitivos."}
+                    {identity?.external_username ? identity.external_username : provider.required ? "Vinculação obrigatória para participar do ambiente competitivo." : "Provider opcional para ampliar a confiança dos dados competitivos."}
                   </p>
-                  {provider.key === "steam" && !verified ? (
-                    <a
-                      href="/api/competitive/steam/start"
-                      className="mt-5 inline-flex rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black uppercase tracking-wide text-black transition hover:bg-cyan-300"
-                    >
-                      Vincular Steam
-                    </a>
+                  {provider.key === "steam" && !verified ? <a href="/api/competitive/steam/start" className="mt-5 inline-flex rounded-lg bg-cyan-400 px-4 py-2 text-xs font-black uppercase tracking-wide text-black transition hover:bg-cyan-300">Vincular Steam</a> : null}
+                  {provider.key === "steam" && verified ? <p className="mt-5 text-xs text-emerald-300/80">Identidade competitiva permanente.</p> : null}
+                  {provider.key === "faceit" && !verified && steamVerified ? (
+                    <form action="/api/competitive/faceit/sync" method="post" className="mt-5"><button className="rounded-lg border border-cyan-400/40 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-400/10">Verificar FACEIT</button></form>
                   ) : null}
-                  {provider.key === "steam" && verified ? (
-                    <p className="mt-5 text-xs text-emerald-300/80">Identidade competitiva permanente.</p>
-                  ) : null}
+                  {provider.key === "faceit" && !verified && !steamVerified ? <p className="mt-5 text-xs text-white/30">Verifique a Steam antes de consultar a FACEIT.</p> : null}
                 </div>
               );
             })}
           </div>
 
-          {state?.competitive_lock_reason ? (
-            <div className="mt-6 rounded-xl border border-red-400/30 bg-red-400/5 p-4 text-sm text-red-200">
-              Conta competitiva bloqueada: {state.competitive_lock_reason}
-            </div>
-          ) : null}
+          {state?.competitive_lock_reason ? <div className="mt-6 rounded-xl border border-red-400/30 bg-red-400/5 p-4 text-sm text-red-200">Conta competitiva bloqueada: {state.competitive_lock_reason}</div> : null}
         </section>
 
         <form action={signOutAction}><button className="rounded-lg border border-white/15 px-5 py-3 text-sm font-bold hover:bg-white/5">SAIR</button></form>
