@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { QueuePanel } from "@/components/matchmaking/queue-panel";
 
 const games = [
   {
     name: "Counter-Strike 2",
     mode: "Competitivo 5v5",
-    status: "EM BREVE",
+    status: "EM CONFIGURAÇÃO",
     description: "A primeira fila competitiva planejada para a RIO ESPORTS.",
     active: true,
   },
@@ -46,8 +47,7 @@ export default function MatchmakingPage() {
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-400">Competitive Queue</p>
           <h1 className="mt-4 text-5xl font-black tracking-[-0.04em] sm:text-7xl">MATCHMAKING</h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-white/55">
-            Escolha um jogo e acompanhe a evolução das filas competitivas da RIO ESPORTS.
-            O backend de matchmaking está sendo estruturado para funcionar com filas protegidas e formação transacional de partidas.
+            Escolha um jogo e entre em uma fila competitiva. A primeira integração conecta a interface às operações seguras de matchmaking da plataforma.
           </p>
         </div>
       </section>
@@ -56,27 +56,27 @@ export default function MatchmakingPage() {
         <div className="grid gap-5 md:grid-cols-3">
           {games.map((game) => (
             <article key={game.name} className={`rounded-2xl border p-6 ${game.active ? "border-cyan-400/30 bg-cyan-400/[0.04]" : "border-white/10 bg-white/[0.02]"}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-cyan-400">{game.status}</p>
-                  <h2 className="mt-4 text-2xl font-black">{game.name}</h2>
-                </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-cyan-400">{game.status}</p>
+                <h2 className="mt-4 text-2xl font-black">{game.name}</h2>
               </div>
               <p className="mt-4 font-medium text-white/70">{game.mode}</p>
               <p className="mt-3 min-h-12 text-sm leading-6 text-white/40">{game.description}</p>
-              <button disabled className="mt-8 w-full cursor-not-allowed rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/40">
-                Fila será liberada após a integração
-              </button>
+              {game.active ? <QueuePanel /> : (
+                <button disabled className="mt-8 w-full cursor-not-allowed rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/40">
+                  EM BREVE
+                </button>
+              )}
             </article>
           ))}
         </div>
 
         <div className="mt-12 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-400">Em construção</p>
-          <h2 className="mt-3 text-2xl font-black">Do banco de dados à partida.</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-400">Integração</p>
+          <h2 className="mt-3 text-2xl font-black">Do perfil à fila.</h2>
           <div className="mt-6 grid gap-4 text-sm text-white/55 md:grid-cols-4">
             <p>01 — Perfil competitivo</p>
-            <p>02 — Entrada na fila</p>
+            <p>02 — Entrada segura</p>
             <p>03 — Formação da partida</p>
             <p>04 — Ranking e resultados</p>
           </div>
