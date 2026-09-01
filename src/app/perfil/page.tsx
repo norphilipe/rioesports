@@ -39,6 +39,7 @@ export default async function PerfilPage() {
   const identityByProvider = new Map(identityList.map((identity) => [identity.provider, identity]));
   const state = competitiveState as PlayerCompetitiveState | null;
   const confidence = CONFIDENCE_COPY[(state?.confidence_level ?? "low") as RsiConfidenceLevel];
+  const steamVerified = identityByProvider.get("steam")?.status === "verified";
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
@@ -101,6 +102,16 @@ export default async function PerfilPage() {
                   ) : null}
                   {provider.key === "steam" && verified ? (
                     <p className="mt-5 text-xs text-emerald-300/80">Identidade competitiva permanente.</p>
+                  ) : null}
+                  {provider.key === "faceit" && !verified && steamVerified ? (
+                    <form action="/api/competitive/faceit/sync" method="post" className="mt-5">
+                      <button className="rounded-lg border border-cyan-400/40 px-4 py-2 text-xs font-black uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-400/10">
+                        Verificar FACEIT
+                      </button>
+                    </form>
+                  ) : null}
+                  {provider.key === "faceit" && !verified && !steamVerified ? (
+                    <p className="mt-5 text-xs text-white/30">Verifique a Steam antes de consultar a FACEIT.</p>
                   ) : null}
                 </div>
               );
