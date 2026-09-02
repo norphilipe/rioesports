@@ -14,7 +14,7 @@ export default async function MatchRoomPage({ params }: { params: Promise<{ matc
         {match ? (
           <div className="mt-8 space-y-6">
             <ExternalMatchRoom matchId={matchId} state={match.state} teamA={match.teamA} teamB={match.teamB} />
-            {match.state === "awaiting_result" && <MatchResultForm matchId={matchId} />}
+            {match.state === "awaiting_result" && match.teamAId && match.teamBId && <MatchResultForm matchId={matchId} teamAId={match.teamAId} teamBId={match.teamBId} />}
           </div>
         ) : (
           <div className="mt-8 rounded-2xl border border-white/10 p-8 text-white/50">Partida não encontrada.</div>
