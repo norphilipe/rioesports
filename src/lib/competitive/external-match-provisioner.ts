@@ -3,12 +3,11 @@ import type { ServerProvisionRequest, ServerProvisioner } from "./server-provisi
 
 /**
  * Represents a match played on an external platform such as XPLAY.
- * No external account is automated or scraped: the RIO ESPORTS platform only
- * records that players must organize the approved match manually.
+ * No external account is automated or scraped: RIO ESPORTS only records that
+ * players must organize the approved match manually.
  */
 export type ExternalMatchProvisionerOptions = {
   provider: string;
-  instructions?: string;
 };
 
 export class ExternalMatchProvisioner implements ServerProvisioner {
@@ -19,23 +18,22 @@ export class ExternalMatchProvisioner implements ServerProvisioner {
       throw new Error("External matches require a match identifier");
     }
 
+    // `ready` is intentionally avoided here: a ServerAssignment represents a
+    // concrete connection endpoint, which external manual matches do not have.
+    // The match lifecycle can continue through result verification instead.
     return {
       matchId: request.matchId,
-      status: "ready",
-      endpoint: undefined,
-      metadata: {
-        provider: this.options.provider,
-        mode: "external_manual",
-        region: request.region,
-        instructions:
-          this.options.instructions ??
-          "Organize the approved external match manually, then submit a demo or confirmed result to RIO ESPORTS.",
-      },
+      status: "unassigned",
+      endpoint: null,
     };
   }
 
   async release(_matchId: string): Promise<void> {
     // External platforms own their infrastructure; there is no server resource
     // for RIO ESPORTS to terminate.
+  }
+
+  get provider() {
+    return this.options.provider;
   }
 }
