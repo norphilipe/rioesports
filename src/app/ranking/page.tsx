@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { RankingTable } from "@/components/ranking/ranking-table";
+import { getCompetitiveRanking } from "@/lib/competitive/ranking-snapshot";
 
-const previewPlayers = [
-  { position: 1, nickname: "Aguardando dados", rating: 0, matches: 0, wins: 0 },
-];
+export default async function RankingPage() {
+  let players = [];
+  let unavailable = false;
 
-export default function RankingPage() {
+  try {
+    players = await getCompetitiveRanking();
+  } catch {
+    unavailable = true;
+  }
+
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-10 text-white lg:px-8">
       <div className="mx-auto max-w-5xl">
         <Link href="/" className="text-xs font-bold tracking-[0.18em] text-white/45 hover:text-white">← INÍCIO</Link>
-        <div className="mt-8"><RankingTable players={previewPlayers} /></div>
+        {unavailable && <p className="mt-6 rounded-lg border border-white/10 bg-white/[0.02] p-4 text-sm text-white/50">O ranking ainda não está disponível. Tente novamente em instantes.</p>}
+        <div className="mt-8"><RankingTable players={players} /></div>
       </div>
     </main>
   );
