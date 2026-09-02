@@ -11,20 +11,14 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomData |
   const { data: match } = await supabase.from("matches").select("status").eq("id", matchId).single();
   if (!match) return null;
 
-  const { data: players } = await supabase
-    .from("match_players")
-    .select("team_side,profile:profiles(nickname)")
-    .eq("match_id", matchId);
-
-  const teamA = (players ?? []).filter((p) => p.team_side === "A").map((p) => (p.profile as { nickname?: string } | null)?.nickname ?? "Jogador");
-  const teamB = (players ?? []).filter((p) => p.team_side === "B").map((p) => (p.profile as { nickname?: string } | null)?.nickname ?? "Jogador");
-
-  const statusMap: Record<string, MatchRoomData["state"]> = {
-    created: "pending",
-    ready: "ready",
-    active: "in_progress",
-    finished: "completed",
+  const { data: players } = await supabase.from("match_players").select("team_side,profile:profiles(display_name,username)").eq("match_id", matchId);
+  const nameOf = (profile: unknown) => {
+    const item = Array.isArray(profile) ? profile[0] : profile as { display_name?: string; username?: string } | null;
+    return item?.display_name ?? item?.username ?? "Jogador";
   };
+  const teamA = (players ?? []).filter((p) => p.team_side === "team_a").map((p) => nameOf(p.profile));
+  const teamB = (players ?? []).filter((p) => p.team_side === "team_b").map((p) => nameOf(p.profile));
 
+  const statusMap: Record<string, MatchRoomData["state"]> = { pending: "pending", ready: "ready", live: "in_progress", finished: "completed" };
   return { state: statusMap[match.status] ?? "awaiting_result", teamA, teamB };
 }
