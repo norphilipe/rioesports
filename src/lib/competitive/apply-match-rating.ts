@@ -13,23 +13,30 @@ export async function applyMatchRating(matchId: string) {
 
   for (const player of players ?? []) {
     if (typeof player.won !== "boolean") continue;
+
     const { data: profile, error: profileError } = await supabase
       .from("competitive_profiles")
       .select("rating,matches_played,wins")
       .eq("profile_id", player.profile_id)
-      .single();
-    if (profileError || !profile) continue;
+      .maybeSingle();
 
+    if (profileError) throw new Error(profileError.message);
+
+    const currentRating = profile?.rating ?? 1000;
+    const currentMatches = profile?.matches_played ?? 0;
+    const currentWins = profile?.wins ?? 0;
     const delta = player.won ? RATING_DELTA : -RATING_DELTA;
-    const nextRating = Math.max(0, (profile.rating ?? 0) + delta);
 
-    await supabase
+    const { error: upsertError } = await supabase
       .from("competitive_profiles")
-      .update({
-        rating: nextRating,
-        matches_played: (profile.matches_played ?? 0) + 1,
-        wins: (profile.wins ?? 0) + (player.won ? 1 : 0),
-      })
-      .eq("profile_id", player.profile_id);
+      .upsert({
+        profile_id: player.profile_id,
+        rating: Math.max(0, currentRating + delta),
+        matches_played: currentMatches + 1,
+        wins: currentWins + (player.won ? 1 : 0),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "profile_id" });
+
+    if (upsertError) throw new Error(upsertError.message);
   }
 }
