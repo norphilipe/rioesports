@@ -33,8 +33,5 @@ export async function applyConfirmedExternalResult(matchId: string) {
   const { error: ratingError } = await supabase.rpc("apply_competitive_match_rating", { p_match_id: matchId });
   if (ratingError) throw new Error(ratingError.message);
 
-  const { error: matchError } = await supabase.from("matches").update({ status: "finished", finished_at: new Date().toISOString() }).eq("id", matchId).neq("status", "finished");
-  if (matchError) throw new Error(matchError.message);
-
   return { matchId, winnerTeamId: winner.id, loserTeamId: loser.id, applied: true };
 }
