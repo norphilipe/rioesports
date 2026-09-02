@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { applyConfirmedExternalResult } from "@/lib/competitive/apply-confirmed-external-result";
 
 export async function POST(request: Request, { params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = await params;
@@ -26,14 +27,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ mat
     loser_score: loserScore,
     submitted_at: new Date().toISOString(),
   }, { onConflict: "match_id,submitted_by" });
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { data: submissions, error: submissionsError } = await supabase
     .from("external_match_result_submissions")
     .select("submitted_by,winner_team_id,loser_team_id,winner_score,loser_score")
     .eq("match_id", matchId);
-
   if (submissionsError) return NextResponse.json({ error: submissionsError.message }, { status: 500 });
 
   const matching = (submissions ?? []).filter((submission) =>
@@ -44,5 +43,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ mat
   );
 
   const status = matching.length >= 2 ? "confirmed" : (submissions?.length ?? 0) >= 2 ? "conflict" : "pending";
+
+  if (status === "confirmed") {
+    try {
+      await applyConfirmedExternalResult(matchId);
+    } catch (applyError) {
+      const message = applyError instanceof Error ? applyError.message : "Could not apply confirmed result";
+      return NextResponse.json({ error: message, status }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({ matchId, status, confirmations: matching.length });
 }
