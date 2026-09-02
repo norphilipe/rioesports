@@ -17,20 +17,34 @@ export type PlayerCompetitiveProfile = {
 
 export async function getPlayerCompetitiveProfile(profileId: string): Promise<PlayerCompetitiveProfile | null> {
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("competitive_profiles")
-    .select("nickname,rating,matches_played,wins")
-    .eq("profile_id", profileId)
-    .single();
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("display_name,username")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (profileError) throw new Error(profileError.message);
   if (!profile) return null;
 
-  const { data: matchPlayers } = await supabase
+  const { data: gameProfile, error: gameProfileError } = await supabase
+    .from("player_game_profiles")
+    .select("mmr,wins,losses")
+    .eq("profile_id", profileId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (gameProfileError) throw new Error(gameProfileError.message);
+
+  const { data: matchPlayers, error: historyError } = await supabase
     .from("match_players")
     .select("won,matches(id,status,finished_at)")
     .eq("profile_id", profileId)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  if (historyError) throw new Error(historyError.message);
 
   const history = (matchPlayers ?? []).map((item) => {
     const match = Array.isArray(item.matches) ? item.matches[0] : item.matches;
@@ -42,11 +56,14 @@ export async function getPlayerCompetitiveProfile(profileId: string): Promise<Pl
     };
   }).filter((item) => item.id);
 
+  const wins = gameProfile?.wins ?? 0;
+  const losses = gameProfile?.losses ?? 0;
+
   return {
-    nickname: profile.nickname ?? "Jogador",
-    rating: profile.rating ?? 0,
-    matches: profile.matches_played ?? 0,
-    wins: profile.wins ?? 0,
+    nickname: profile.display_name || profile.username || "Jogador",
+    rating: gameProfile?.mmr ?? 1000,
+    matches: wins + losses,
+    wins,
     history,
   };
 }
