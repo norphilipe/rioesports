@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { RankingTable } from "@/components/ranking/ranking-table";
-import { getCompetitiveRanking } from "@/lib/competitive/ranking-snapshot";
+import { getCompetitiveLeaderboard } from "@/lib/competitive/leaderboard";
 
 export default async function RankingPage() {
   let players = [];
   let unavailable = false;
 
   try {
-    players = await getCompetitiveRanking();
+    players = await getCompetitiveLeaderboard();
   } catch {
     unavailable = true;
   }
