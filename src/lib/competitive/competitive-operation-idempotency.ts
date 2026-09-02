@@ -15,12 +15,27 @@ export function createCompetitiveOperationKey(input: CompetitiveOperationKey) {
   return [scope, id, input.version ?? 1].join(":");
 }
 
+export type CompetitiveOperationStatus = "pending" | "completed" | "failed";
+
 export type CompetitiveOperationRecord<T> = {
   key: string;
-  status: "pending" | "completed" | "failed";
+  status: CompetitiveOperationStatus;
   result?: T;
+  updatedAt?: string;
 };
 
 export function canExecuteCompetitiveOperation<T>(record?: CompetitiveOperationRecord<T> | null) {
   return !record || record.status === "failed";
+}
+
+export function nextCompetitiveOperationStatus(
+  current: CompetitiveOperationStatus,
+  succeeded: boolean,
+): CompetitiveOperationStatus {
+  if (current === "completed") return "completed";
+  return succeeded ? "completed" : "failed";
+}
+
+export function isCompetitiveOperationTerminal(status: CompetitiveOperationStatus) {
+  return status === "completed" || status === "failed";
 }
