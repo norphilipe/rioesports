@@ -1,5 +1,7 @@
 import { executeMatchmakingRun, type MatchmakingQueueSource } from "./matchmaking-runner";
 import { dispatchCompetitiveMatch } from "./competitive-match-dispatch";
+import { toCompetitiveCycleFailure } from "./competitive-cycle-failure";
+import type { CompetitiveCycleResult } from "./competitive-cycle-result";
 import type { MatchFormationStore } from "./match-formation-commit";
 import type { MatchServerDispatchStore } from "./match-server-dispatch";
 import type { MatchmakingPolicy } from "./matchmaking-policy";
@@ -12,20 +14,42 @@ export async function runCompetitiveCycle(
   provisioner: ServerProvisioner,
   region: string,
   policy?: MatchmakingPolicy,
-) {
-  const matchmaking = await executeMatchmakingRun(queue, new Date(), policy);
+): Promise<CompetitiveCycleResult<Awaited<ReturnType<typeof executeMatchmakingRun>>, Awaited<ReturnType<typeof dispatchCompetitiveMatch>>>> {
+  let matchmaking;
 
-  if (!matchmaking.formed) {
-    return { stage: "queue" as const, matchmaking, dispatch: null };
+  try {
+    matchmaking = await executeMatchmakingRun(queue, new Date(), policy);
+  } catch (error) {
+    return {
+      ok: false,
+      stage: "failed",
+      matchmaking: null,
+      dispatch: null,
+      failure: toCompetitiveCycleFailure("matchmaking", error),
+    };
   }
 
-  const dispatch = await dispatchCompetitiveMatch(
-    matches,
-    servers,
-    provisioner,
-    { teamAIds: matchmaking.teamAIds, teamBIds: matchmaking.teamBIds },
-    region,
-  );
+  if (!matchmaking.formed) {
+    return { ok: true, stage: "queue", matchmaking, dispatch: null };
+  }
 
-  return { stage: "server_ready" as const, matchmaking, dispatch };
+  try {
+    const dispatch = await dispatchCompetitiveMatch(
+      matches,
+      servers,
+      provisioner,
+      { teamAIds: matchmaking.teamAIds, teamBIds: matchmaking.teamBIds },
+      region,
+    );
+
+    return { ok: true, stage: "server_ready", matchmaking, dispatch };
+  } catch (error) {
+    return {
+      ok: false,
+      stage: "failed",
+      matchmaking,
+      dispatch: null,
+      failure: toCompetitiveCycleFailure("server_provisioning", error),
+    };
+  }
 }
