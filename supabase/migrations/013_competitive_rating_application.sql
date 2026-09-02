@@ -17,14 +17,14 @@ declare
   v_previous integer;
   v_next integer;
 begin
-  select id, game_id, status into v_match from public.matches where id = p_match_id for update;
+  select id, game_id, status into v_match
+  from public.matches where id = p_match_id for update;
+
   if not found then raise exception 'match not found'; end if;
   if v_match.status = 'finished' then return; end if;
   v_game_id := v_match.game_id;
 
-  for v_player in
-    select profile_id, won from public.match_players where match_id = p_match_id
-  loop
+  for v_player in select profile_id, won from public.match_players where match_id = p_match_id loop
     if v_player.won is null then continue; end if;
 
     select * into v_game_profile
@@ -57,5 +57,9 @@ begin
     set mmr_before = v_previous, mmr_after = v_next
     where match_id = p_match_id and profile_id = v_player.profile_id;
   end loop;
+
+  update public.matches
+  set status = 'finished', finished_at = coalesce(finished_at, now())
+  where id = p_match_id;
 end;
 $$;
