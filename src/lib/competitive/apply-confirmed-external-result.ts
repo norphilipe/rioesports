@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { applyMatchRating } from "./apply-match-rating";
 
 export async function applyConfirmedExternalResult(matchId: string) {
   const supabase = await createClient();
@@ -10,8 +9,9 @@ export async function applyConfirmedExternalResult(matchId: string) {
   const confirmed = first && (submissions ?? []).filter((item) => item.winner_team_id === first.winner_team_id && item.loser_team_id === first.loser_team_id && item.winner_score === first.winner_score && item.loser_score === first.loser_score).length >= 2;
   if (!confirmed) throw new Error("External match result is not confirmed");
 
-  const { data: match } = await supabase.from("matches").select("status").eq("id", matchId).single();
-  if (match?.status === "finished") return { matchId, applied: true, alreadyApplied: true };
+  const { data: match, error: matchLookupError } = await supabase.from("matches").select("status").eq("id", matchId).single();
+  if (matchLookupError || !match) throw new Error(matchLookupError?.message ?? "Match not found");
+  if (match.status === "finished") return { matchId, applied: true, alreadyApplied: true };
 
   const { data: teams, error: teamsError } = await supabase.from("match_teams").select("id,side").eq("match_id", matchId);
   if (teamsError || !teams) throw new Error(teamsError?.message ?? "Match teams not found");
@@ -30,7 +30,8 @@ export async function applyConfirmedExternalResult(matchId: string) {
   const { error: losingPlayersError } = await supabase.from("match_players").update({ won: false }).eq("match_id", matchId).eq("team_side", loser.side);
   if (losingPlayersError) throw new Error(losingPlayersError.message);
 
-  await applyMatchRating(matchId);
+  const { error: ratingError } = await supabase.rpc("apply_competitive_match_rating", { p_match_id: matchId });
+  if (ratingError) throw new Error(ratingError.message);
 
   const { error: matchError } = await supabase.from("matches").update({ status: "finished", finished_at: new Date().toISOString() }).eq("id", matchId).neq("status", "finished");
   if (matchError) throw new Error(matchError.message);
