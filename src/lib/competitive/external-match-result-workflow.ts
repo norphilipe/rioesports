@@ -1,3 +1,5 @@
+import { assertCompetitiveResultFinalizable } from "./competitive-result-finalization";
+
 export type ExternalMatchResult = {
   matchId: string;
   winnerTeamId: string;
@@ -32,4 +34,19 @@ export function assertExternalMatchResultProcessable(
   if (!canProcessExternalMatchResult(result, verification)) {
     throw new Error("External match result has not been sufficiently verified");
   }
+}
+
+export function finalizeVerifiedExternalMatch(
+  result: ExternalMatchResult,
+  verification: ExternalMatchVerification,
+  ratingApplied: boolean,
+) {
+  assertExternalMatchResultProcessable(result, verification);
+  assertCompetitiveResultFinalizable({
+    matchId: result.matchId,
+    resultRecorded: true,
+    ratingApplied,
+  });
+
+  return { matchId: result.matchId, status: "completed" as const };
 }
