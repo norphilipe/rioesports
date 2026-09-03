@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { RankingTable } from "@/components/ranking/ranking-table";
-import { getCompetitiveLeaderboard } from "@/lib/competitive/leaderboard";
+import { getCompetitiveLeaderboard, type LeaderboardEntry } from "@/lib/competitive/leaderboard";
 
 export default async function RankingPage() {
-  let players = [];
+  let players: LeaderboardEntry[] = [];
   let unavailable = false;
 
   try {
