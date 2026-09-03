@@ -13,6 +13,8 @@ import {
 } from "@/lib/competitive/identity";
 import { createClient } from "@/lib/supabase/server";
 
+const OUTSIDE_RJ_VALUE = "N/A — Fora do RJ atualmente";
+
 const providers = [
   { key: "steam", label: "Steam", required: true, placeholder: "" },
   { key: "faceit", label: "FACEIT", required: false, placeholder: "Seu nickname ou URL do perfil FACEIT" },
@@ -33,31 +35,38 @@ export default async function PerfilPage() {
   const confidence = CONFIDENCE_COPY[(state?.confidence_level ?? "low") as RsiConfidenceLevel];
   const displayName = profile?.display_name || profile?.username || user.email || "Jogador";
   const username = profile?.username || "player";
+  const location = profile?.city === OUTSIDE_RJ_VALUE
+    ? OUTSIDE_RJ_VALUE
+    : profile?.city
+      ? `${profile.city}, RJ`
+      : "Ainda não informada";
 
   return (
     <main className="min-h-screen bg-[#050505] px-6 py-16 text-white">
       <section className="mx-auto max-w-3xl space-y-6">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-400">Minha conta</p>
-            <h1 className="mt-3 text-3xl font-black">{displayName}</h1>
-            <p className="mt-2 text-white/50">@{username}</p>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-cyan-400">Minha conta</p>
+              <h1 className="mt-3 text-3xl font-black">{displayName}</h1>
+              <p className="mt-2 text-white/50">@{username}</p>
+            </div>
+            <a href="#editar-perfil" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/5 px-5 py-3 text-sm font-bold uppercase tracking-wide text-cyan-300 transition hover:bg-cyan-400/10">Editar perfil</a>
           </div>
           <div className="mt-8 grid gap-4 text-sm text-white/65 sm:grid-cols-2">
             <div><span className="block text-white/35">E-mail</span>{user.email}</div>
-            <div><span className="block text-white/35">Localização</span>{profile?.city ? `${profile.city}, RJ` : "Ainda não informada"}</div>
+            <div><span className="block text-white/35">Localização</span>{location}</div>
           </div>
-          <details className="group mt-8">
-            <summary className="inline-flex cursor-pointer list-none rounded-lg border border-cyan-400/30 bg-cyan-400/5 px-5 py-3 text-sm font-bold uppercase tracking-wide text-cyan-300 transition hover:bg-cyan-400/10 [&::-webkit-details-marker]:hidden">Editar perfil</summary>
+          <details id="editar-perfil" className="group mt-8">
+            <summary className="inline-flex cursor-pointer list-none rounded-lg border border-cyan-400/30 bg-cyan-400/5 px-5 py-3 text-sm font-bold uppercase tracking-wide text-cyan-300 transition hover:bg-cyan-400/10 [&::-webkit-details-marker]:hidden">Abrir edição do perfil</summary>
             <div className="mt-6 border-t border-white/10 pt-7">
               <div className="mb-5 flex items-center justify-between gap-4">
-                <div><h2 className="text-lg font-black">Editar informações</h2><p className="mt-1 text-sm text-white/45">Escolha seu nome, usuário e uma única cidade do estado do Rio de Janeiro.</p></div>
-                <span className="rounded-md bg-white/5 px-3 py-1 text-xs font-bold text-white/45">RJ</span>
+                <div><h2 className="text-lg font-black">Editar informações</h2><p className="mt-1 text-sm text-white/45">Escolha seu nome, usuário e uma localização.</p></div>
               </div>
               <form action={updateProfileAction} className="grid gap-4 sm:grid-cols-2">
                 <div><label htmlFor="display_name" className="mb-2 block text-xs font-bold uppercase tracking-wide text-white/45">Nome de exibição</label><input id="display_name" name="display_name" required maxLength={80} defaultValue={profile?.display_name ?? ""} className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none transition focus:border-cyan-400/50" /></div>
                 <div><label htmlFor="username" className="mb-2 block text-xs font-bold uppercase tracking-wide text-white/45">Usuário (@)</label><input id="username" name="username" required minLength={3} maxLength={24} pattern="[a-zA-Z0-9_]+" defaultValue={profile?.username ?? ""} className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none transition focus:border-cyan-400/50" /></div>
-                <div className="sm:col-span-2"><label htmlFor="city" className="mb-2 block text-xs font-bold uppercase tracking-wide text-white/45">Localização — cidade do Rio de Janeiro</label><select id="city" name="city" defaultValue={profile?.city ?? ""} className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none transition focus:border-cyan-400/50"><option value="">Selecione uma cidade</option>{RIO_DE_JANEIRO_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select><p className="mt-2 text-xs text-white/35">Apenas uma cidade pode ser selecionada. Todas as 92 cidades do estado estão disponíveis.</p></div>
+                <div className="sm:col-span-2"><label htmlFor="city" className="mb-2 block text-xs font-bold uppercase tracking-wide text-white/45">Localização</label><select id="city" name="city" defaultValue={profile?.city ?? ""} className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none transition focus:border-cyan-400/50"><option value="">Selecione sua localização</option><option value={OUTSIDE_RJ_VALUE}>N/A — Não moro atualmente no Estado do Rio de Janeiro</option><optgroup label="Municípios do Estado do Rio de Janeiro">{RIO_DE_JANEIRO_CITIES.map((city) => <option key={city} value={city}>{city}, RJ</option>)}</optgroup></select><p className="mt-2 text-xs text-white/35">Escolha apenas uma opção. Você pode selecionar qualquer um dos 92 municípios do RJ ou indicar que atualmente mora fora do estado.</p></div>
                 <div className="sm:col-span-2"><button className="rounded-lg bg-cyan-400 px-5 py-3 text-sm font-black uppercase tracking-wide text-black transition hover:bg-cyan-300">Salvar alterações</button></div>
               </form>
             </div>
