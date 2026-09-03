@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { RIO_DE_JANEIRO_CITY_SET } from "@/lib/locations/rio-de-janeiro";
 import {
   normalizeUsername,
   validateEmail,
@@ -64,13 +65,14 @@ export async function updateProfileAction(formData: FormData) {
   const username = normalizeUsername(value(formData, "username"));
   const displayName = value(formData, "display_name");
   const city = value(formData, "city");
-  const stateCode = value(formData, "state_code").toUpperCase();
+  const stateCode = "RJ";
 
   const usernameResult = validateUsername(username);
   if (!usernameResult.ok) redirect(`/perfil?profile=error&message=${encodeURIComponent(usernameResult.error ?? "Usuário inválido.")}`);
   if (!displayName || displayName.length > 80) redirect(`/perfil?profile=error&message=${encodeURIComponent("O nome de exibição deve ter entre 1 e 80 caracteres.")}`);
-  if (city.length > 80) redirect(`/perfil?profile=error&message=${encodeURIComponent("A cidade pode ter no máximo 80 caracteres.")}`);
-  if (stateCode && !/^[A-Z]{2}$/.test(stateCode)) redirect(`/perfil?profile=error&message=${encodeURIComponent("Informe uma UF válida com duas letras.")}`);
+  if (city && !RIO_DE_JANEIRO_CITY_SET.has(city)) {
+    redirect(`/perfil?profile=error&message=${encodeURIComponent("Selecione uma cidade válida do estado do Rio de Janeiro.")}`);
+  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -82,7 +84,7 @@ export async function updateProfileAction(formData: FormData) {
       username,
       display_name: displayName,
       city: city || null,
-      state_code: stateCode || null,
+      state_code: city ? stateCode : null,
     })
     .eq("id", user.id);
 
