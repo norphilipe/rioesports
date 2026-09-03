@@ -25,6 +25,7 @@
     "vinext": "latest"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "latest",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
