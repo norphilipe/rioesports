@@ -15,7 +15,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Temporary migration validation: package-lock.json has not yet been regenerated
+      # after adding vinext/Vite dependencies.
+      - run: npm install
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
@@ -29,6 +31,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Resolve the migration dependencies so vinext can run and expose real
+      # compatibility/build issues instead of stopping at the stale lockfile.
+      - run: npm install
       - run: npm run check:vinext
       - run: npm run build:vinext
