@@ -11,6 +11,8 @@ import {
   validateUsername,
 } from "@/lib/auth/validation";
 
+const OUTSIDE_RJ_VALUE = "N/A — Fora do RJ atualmente";
+
 export type AuthActionState = { error?: string; message?: string };
 
 function value(formData: FormData, name: string) {
@@ -65,13 +67,13 @@ export async function updateProfileAction(formData: FormData) {
   const username = normalizeUsername(value(formData, "username"));
   const displayName = value(formData, "display_name");
   const city = value(formData, "city");
-  const stateCode = "RJ";
+  const isOutsideRj = city === OUTSIDE_RJ_VALUE;
 
   const usernameResult = validateUsername(username);
   if (!usernameResult.ok) redirect(`/perfil?profile=error&message=${encodeURIComponent(usernameResult.error ?? "Usuário inválido.")}`);
   if (!displayName || displayName.length > 80) redirect(`/perfil?profile=error&message=${encodeURIComponent("O nome de exibição deve ter entre 1 e 80 caracteres.")}`);
-  if (city && !RIO_DE_JANEIRO_CITY_SET.has(city)) {
-    redirect(`/perfil?profile=error&message=${encodeURIComponent("Selecione uma cidade válida do estado do Rio de Janeiro.")}`);
+  if (city && !isOutsideRj && !RIO_DE_JANEIRO_CITY_SET.has(city)) {
+    redirect(`/perfil?profile=error&message=${encodeURIComponent("Selecione uma cidade válida do estado do Rio de Janeiro ou a opção N/A.")}`);
   }
 
   const supabase = await createClient();
@@ -84,7 +86,7 @@ export async function updateProfileAction(formData: FormData) {
       username,
       display_name: displayName,
       city: city || null,
-      state_code: city ? stateCode : null,
+      state_code: city && !isOutsideRj ? "RJ" : null,
     })
     .eq("id", user.id);
 
