@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, migration/cloudflare-workers]
   pull_request:
     branches: [main]
 
@@ -19,3 +19,16 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+
+  cloudflare-compatibility:
+    if: github.ref == 'refs/heads/migration/cloudflare-workers' || github.event.pull_request.head.ref == 'migration/cloudflare-workers'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check:vinext
+      - run: npm run build:vinext
