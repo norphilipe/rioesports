@@ -60,6 +60,59 @@ export async function signInAction(_: AuthActionState, formData: FormData): Prom
   redirect("/perfil");
 }
 
+export async function updateProfileAction(formData: FormData) {
+  const username = normalizeUsername(value(formData, "username"));
+  const displayName = value(formData, "display_name");
+  const city = value(formData, "city");
+  const stateCode = value(formData, "state_code").toUpperCase();
+
+  const usernameResult = validateUsername(username);
+  if (!usernameResult.ok) redirect(`/perfil?profile=error&message=${encodeURIComponent(usernameResult.error ?? "Usuário inválido.")}`);
+  if (!displayName || displayName.length > 80) redirect(`/perfil?profile=error&message=${encodeURIComponent("O nome de exibição deve ter entre 1 e 80 caracteres.")}`);
+  if (city.length > 80) redirect(`/perfil?profile=error&message=${encodeURIComponent("A cidade pode ter no máximo 80 caracteres.")}`);
+  if (stateCode && !/^[A-Z]{2}$/.test(stateCode)) redirect(`/perfil?profile=error&message=${encodeURIComponent("Informe uma UF válida com duas letras.")}`);
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      username,
+      display_name: displayName,
+      city: city || null,
+      state_code: stateCode || null,
+    })
+    .eq("id", user.id);
+
+  if (error) redirect(`/perfil?profile=error&message=${encodeURIComponent(error.message)}`);
+  redirect("/perfil?profile=updated");
+}
+
+export async function linkOptionalIdentityAction(formData: FormData) {
+  const provider = value(formData, "provider").toLowerCase();
+  const externalUsername = value(formData, "external_username");
+
+  if (provider !== "faceit" && provider !== "leetify") redirect("/perfil?identity=error");
+  if (!externalUsername || externalUsername.length > 255) {
+    redirect(`/perfil?identity=error&message=${encodeURIComponent("Informe um usuário ou URL de perfil válido.")}`);
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.rpc("link_optional_competitive_identity", {
+    target_provider: provider,
+    target_external_id: externalUsername,
+    target_external_username: externalUsername,
+  });
+
+  if (error) redirect(`/perfil?identity=error&message=${encodeURIComponent(error.message)}`);
+  redirect(`/perfil?identity=linked&provider=${encodeURIComponent(provider)}`);
+}
+
 export async function signOutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
