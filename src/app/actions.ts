@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -14,6 +15,16 @@ export type AuthActionState = { error?: string; message?: string };
 
 function value(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
+}
+
+function slugify(input: string) {
+  return input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 150);
 }
 
 async function getOrigin() {
@@ -95,4 +106,48 @@ export async function updatePasswordAction(_: AuthActionState, formData: FormDat
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
   redirect("/perfil");
+}
+
+export async function createNewsAction(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/entrar");
+
+  const title = value(formData, "title");
+  const excerpt = value(formData, "excerpt");
+  const content = value(formData, "content");
+  const coverImageUrl = value(formData, "cover_image_url") || null;
+  const status = value(formData, "status") || "draft";
+  const customSlug = slugify(value(formData, "slug"));
+  const slug = customSlug || slugify(title);
+
+  if (title.length < 3) throw new Error("O título precisa ter pelo menos 3 caracteres.");
+  if (!slug) throw new Error("Não foi possível gerar uma URL para esta notícia.");
+  if (!excerpt) throw new Error("Informe um resumo para a notícia.");
+  if (!content) throw new Error("Escreva o conteúdo da notícia.");
+  if (!["draft", "published", "scheduled"].includes(status)) throw new Error("Status inválido.");
+
+  const scheduledAt = value(formData, "published_at");
+  const publishedAt = status === "published" ? new Date().toISOString() : status === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null;
+  if (status === "scheduled" && !publishedAt) throw new Error("Informe a data de publicação.");
+
+  const { error } = await supabase.from("news_articles").insert({
+    title,
+    slug,
+    excerpt,
+    content,
+    cover_image_url: coverImageUrl,
+    status,
+    author_id: user.id,
+    published_at: publishedAt,
+  });
+
+  if (error) {
+    if (error.code === "23505") throw new Error("Já existe uma notícia usando esta URL. Escolha outro slug.");
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/admin/noticias");
+  revalidatePath("/noticias");
+  redirect("/admin/noticias");
 }
