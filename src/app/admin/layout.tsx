@@ -2,12 +2,10 @@ import Link from "next/link";
 
 const navigation = [
   ["Visão geral", "/admin"],
-  ["Conteúdo", "/admin/conteudo"],
+  ["Notícias", "/admin/noticias"],
   ["Campeonatos", "/admin/campeonatos"],
   ["Matchmaking", "/admin/matchmaking"],
   ["Rankings", "/admin/rankings"],
-  ["Usuários", "/admin/usuarios"],
-  ["Configurações", "/admin/configuracoes"],
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
