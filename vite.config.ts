@@ -6,12 +6,12 @@ import vinext from "vinext";
 export default defineConfig({
   plugins: [
     tailwindcss(),
+    vinext(),
     cloudflare({
       viteEnvironment: {
         name: "rsc",
         childEnvironments: ["ssr"],
       },
     }),
-    vinext(),
   ],
 });
