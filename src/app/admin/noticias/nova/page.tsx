@@ -1,14 +1,17 @@
+import Link from "next/link";
+import { createNewsAction } from "@/app/actions";
+
 export default function NewAdminNewsPage() {
-  return (
-    <main className="p-6 lg:p-10">
-      <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-400">Conteúdo / Notícias</p>
-      <h1 className="mt-3 text-4xl font-black">Nova notícia</h1>
-      <form className="mt-10 max-w-4xl space-y-6">
-        <label className="block"><span className="text-sm font-bold">Título</span><input disabled placeholder="Digite o título da notícia" className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25" /></label>
-        <label className="block"><span className="text-sm font-bold">Resumo</span><textarea disabled placeholder="Um resumo curto para apresentação da notícia" rows={3} className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25" /></label>
-        <label className="block"><span className="text-sm font-bold">Conteúdo</span><textarea disabled placeholder="O editor completo será conectado ao banco de dados e ao sistema de publicação." rows={12} className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25" /></label>
-        <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-4 text-sm text-amber-200">A interface está preparada. Os campos serão habilitados após concluirmos autenticação, permissões e persistência segura no Supabase.</div>
-      </form>
-    </main>
-  );
+  return <main className="p-6 lg:p-10">
+    <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-400">Conteúdo / Notícias</p><h1 className="mt-3 text-4xl font-black">Nova notícia</h1><p className="mt-3 text-white/50">Preencha os dados abaixo para criar uma publicação.</p></div><Link href="/admin/noticias" className="rounded-lg border border-white/10 px-4 py-2 text-sm font-bold text-white/60">← Voltar</Link></div>
+    <form action={createNewsAction} className="mt-10 max-w-4xl space-y-6">
+      <div className="grid gap-6 md:grid-cols-3"><label className="block md:col-span-2"><span className="text-sm font-bold">Título</span><input name="title" required minLength={3} placeholder="Digite o título da notícia" className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-cyan-400" /></label><label className="block"><span className="text-sm font-bold">Status</span><select name="status" defaultValue="draft" className="mt-2 w-full rounded-lg border border-white/10 bg-[#101010] px-4 py-3 text-white outline-none focus:border-cyan-400"><option value="draft">Salvar como rascunho</option><option value="published">Publicar agora</option><option value="scheduled">Agendar publicação</option></select></label></div>
+      <label className="block"><span className="text-sm font-bold">Slug / URL <span className="font-normal text-white/35">(opcional)</span></span><input name="slug" placeholder="minha-noticia" className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-cyan-400" /><span className="mt-2 block text-xs text-white/35">Se deixar em branco, a URL será gerada automaticamente a partir do título.</span></label>
+      <label className="block"><span className="text-sm font-bold">Resumo</span><textarea name="excerpt" required placeholder="Um resumo curto para apresentação da notícia" rows={3} className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-cyan-400" /></label>
+      <label className="block"><span className="text-sm font-bold">Imagem de capa <span className="font-normal text-white/35">(URL opcional)</span></span><input name="cover_image_url" type="url" placeholder="https://..." className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-cyan-400" /></label>
+      <label className="block"><span className="text-sm font-bold">Conteúdo</span><textarea name="content" required placeholder="Escreva a notícia completa..." rows={14} className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white placeholder:text-white/25 outline-none focus:border-cyan-400" /></label>
+      <label className="block max-w-sm"><span className="text-sm font-bold">Data de publicação <span className="font-normal text-white/35">(necessária apenas para agendamento)</span></span><input name="published_at" type="datetime-local" className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-white outline-none focus:border-cyan-400" /></label>
+      <div className="flex flex-wrap gap-3 border-t border-white/10 pt-6"><button type="submit" className="rounded-lg bg-cyan-400 px-6 py-3 font-black text-black transition hover:bg-cyan-300">Salvar notícia</button><Link href="/admin/noticias" className="rounded-lg border border-white/10 px-6 py-3 font-black text-white/60">Cancelar</Link></div>
+    </form>
+  </main>;
 }
