@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 const modules = [
   { icon: "📰", title: "Conteúdo", description: "Notícias, categorias e páginas institucionais.", href: "/admin/conteudo" },
@@ -9,44 +10,61 @@ const modules = [
   { icon: "⚙️", title: "Configurações", description: "Parâmetros globais e futuras integrações da plataforma.", href: "/admin/configuracoes" },
 ];
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const supabase = await createClient();
+  const [
+    { count: games },
+    { count: tournaments },
+    { count: liveMatches },
+    { count: queuedPlayers },
+  ] = await Promise.all([
+    supabase.from("games").select("*", { count: "exact", head: true }),
+    supabase.from("tournaments").select("*", { count: "exact", head: true }).in("status", ["registration", "checkin", "running"]),
+    supabase.from("matches").select("*", { count: "exact", head: true }).eq("status", "live"),
+    supabase.from("matchmaking_queue_entries").select("*", { count: "exact", head: true }).eq("status", "queued"),
+  ]);
+
+  const stats = [
+    ["Jogos configurados", games ?? 0],
+    ["Campeonatos ativos", tournaments ?? 0],
+    ["Partidas ao vivo", liveMatches ?? 0],
+    ["Jogadores na fila", queuedPlayers ?? 0],
+  ];
+
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
-      <header className="border-b border-white/10 bg-[#0b0b0b]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-400 font-black text-black">R</div>
-            <div>
-              <div className="font-black tracking-tight">RIO ESPORTS <span className="text-cyan-400">ADMIN</span></div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-white/35">Central de Administração</div>
-            </div>
-          </div>
-          <Link href="/" className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 transition hover:border-cyan-400/50 hover:text-white">Ver site</Link>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
-        <div className="mb-12">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-400">Administração</p>
+    <main className="p-6 lg:p-10">
+      <div className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-400">Administração</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">Controle o Rio Esports.</h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-white/50">Esta será a central para administrar conteúdo, campeonatos, matchmaking, rankings, usuários e configurações da plataforma.</p>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-white/50">Central operacional para administrar conteúdo, campeonatos, matchmaking, rankings, usuários e configurações.</p>
         </div>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {modules.map((module) => (
-            <Link key={module.title} href={module.href} className="group rounded-2xl border border-white/10 bg-white/[0.025] p-6 transition hover:border-cyan-400/50 hover:bg-cyan-400/[0.04]">
-              <div className="flex items-start justify-between"><span className="text-3xl">{module.icon}</span><span className="text-xs font-black text-cyan-400 opacity-0 transition group-hover:opacity-100">ABRIR →</span></div>
-              <h2 className="mt-8 text-xl font-black">{module.title}</h2>
-              <p className="mt-3 text-sm leading-6 text-white/45">{module.description}</p>
-            </Link>
-          ))}
-        </section>
-
-        <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-6">
-          <p className="text-sm font-black text-amber-300">Próxima etapa: segurança e permissões</p>
-          <p className="mt-2 text-sm leading-6 text-white/50">O painel visual está disponível, mas o acesso será protegido antes de os módulos administrativos receberem operações críticas. A próxima implementação definirá cargos, permissões e o primeiro administrador.</p>
-        </section>
+        <Link href="/" className="rounded-lg border border-white/15 px-4 py-2 text-center text-sm font-semibold text-white/70 transition hover:border-cyan-400/50 hover:text-white">Ver site ↗</Link>
       </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map(([label, value]) => (
+          <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+            <p className="text-sm text-white/45">{label}</p>
+            <p className="mt-2 text-3xl font-black text-cyan-300">{value}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {modules.map((module) => (
+          <Link key={module.title} href={module.href} className="group rounded-2xl border border-white/10 bg-white/[0.025] p-6 transition hover:border-cyan-400/50 hover:bg-cyan-400/[0.04]">
+            <div className="flex items-start justify-between"><span className="text-3xl">{module.icon}</span><span className="text-xs font-black text-cyan-400 opacity-0 transition group-hover:opacity-100">ABRIR →</span></div>
+            <h2 className="mt-8 text-xl font-black">{module.title}</h2>
+            <p className="mt-3 text-sm leading-6 text-white/45">{module.description}</p>
+          </Link>
+        ))}
+      </section>
+
+      <section className="mt-10 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-6">
+        <p className="text-sm font-black text-emerald-300">Acesso administrativo protegido</p>
+        <p className="mt-2 text-sm leading-6 text-white/50">O painel agora depende de uma conta autenticada com função administrativa ativa. A fundação também libera o acesso seguro aos dados competitivos para os módulos internos.</p>
+      </section>
     </main>
   );
 }
