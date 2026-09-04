@@ -18,17 +18,38 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user && request.nextUrl.pathname.startsWith("/perfil")) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  if (!user && (pathname.startsWith("/perfil") || pathname.startsWith("/admin"))) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", request.nextUrl.pathname);
+    redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && pathname.startsWith("/admin") && pathname !== "/admin/acesso-negado") {
+    const { data: admin } = await supabase
+      .from("platform_admins")
+      .select("role")
+      .eq("profile_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!admin) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/admin/acesso-negado";
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/perfil/:path*"],
+  matcher: ["/perfil/:path*", "/admin/:path*"],
 };
