@@ -1,0 +1,6 @@
+import Link from "next/link";
+
+export default function AdminTournamentsPage() {
+  return <main className="p-6 lg:p-10"><p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-400">Competitivo</p><div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><h1 className="text-4xl font-black">Campeonatos</h1><p className="mt-3 text-white/50">Crie e acompanhe competições, equipes, inscrições e partidas.</p></div><Link href="/admin/campeonatos/novo" className="rounded-lg bg-cyan-400 px-5 py-3 text-center font-black text-black">+ Novo campeonato</Link></div><div className="mt-10 grid gap-4 md:grid-cols-3"><Card title="Campeonatos ativos" value="0"/><Card title="Inscrições abertas" value="0"/><Card title="Partidas pendentes" value="0"/></div><div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center"><h2 className="font-black">Nenhum campeonato cadastrado</h2><p className="mt-2 text-sm text-white/45">O próximo passo conectará esta área à estrutura competitiva do banco de dados.</p></div></main>;
+}
+function Card({title,value}:{title:string;value:string}) { return <div className="rounded-xl border border-white/10 bg-white/[0.025] p-5"><p className="text-sm text-white/45">{title}</p><p className="mt-2 text-3xl font-black">{value}</p></div>; }
