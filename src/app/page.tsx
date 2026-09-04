@@ -10,8 +10,22 @@ const games = [
 
 export default async function Home() {
   const user = await getCurrentUser();
-  const supabase = await createClient();
-  const { data: profile } = user ? await supabase.from("profiles").select("username, display_name").eq("id", user.id).maybeSingle() : { data: null };
+  let profile: { username: string | null; display_name: string | null } | null = null;
+
+  if (user) {
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("username, display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = data;
+    } catch (error) {
+      console.error("Unable to resolve the current user profile:", error);
+    }
+  }
+
   const displayName = profile?.display_name?.trim() || profile?.username?.trim() || user?.email?.split("@")[0] || "Jogador";
   const username = profile?.username?.trim() || null;
   const initial = displayName.charAt(0).toUpperCase();
