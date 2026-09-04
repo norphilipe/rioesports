@@ -1,0 +1,1 @@
+Editorial module integration marker. Full news administration implementation is pending conflict-safe consolidation of PR #20.
