@@ -1,5 +1,7 @@
 import { fetchFaceitChampionship, fetchFaceitHub, fetchFaceitMatch, fetchFaceitTournament } from "./api";
+import { classifyFaceitEvent } from "./events";
 import { planFaceitEvent } from "./process-event";
+import { storeFaceitResource } from "./store-resource";
 
 export type FaceitSyncResult = {
   action: string;
@@ -13,18 +15,17 @@ export async function synchronizeFaceitEvent(eventType: string | null, payload: 
     return { action: plan.action, entityId: plan.entityId, resource: null };
   }
 
-  if (plan.kind === "match") {
-    return { action: plan.action, entityId: plan.entityId, resource: await fetchFaceitMatch(plan.entityId) };
-  }
-  if (plan.kind === "tournament") {
-    return { action: plan.action, entityId: plan.entityId, resource: await fetchFaceitTournament(plan.entityId) };
-  }
-  if (plan.kind === "championship") {
-    return { action: plan.action, entityId: plan.entityId, resource: await fetchFaceitChampionship(plan.entityId) };
-  }
-  if (plan.kind === "hub") {
-    return { action: plan.action, entityId: plan.entityId, resource: await fetchFaceitHub(plan.entityId) };
+  let resource: unknown;
+  if (plan.kind === "match") resource = await fetchFaceitMatch(plan.entityId);
+  else if (plan.kind === "tournament") resource = await fetchFaceitTournament(plan.entityId);
+  else if (plan.kind === "championship") resource = await fetchFaceitChampionship(plan.entityId);
+  else if (plan.kind === "hub") resource = await fetchFaceitHub(plan.entityId);
+  else return { action: "ignored", entityId: plan.entityId, resource: null };
+
+  const kind = classifyFaceitEvent(eventType);
+  if (kind !== "unknown") {
+    await storeFaceitResource(kind, plan.entityId, resource, eventType);
   }
 
-  return { action: "ignored", entityId: plan.entityId, resource: null };
+  return { action: plan.action, entityId: plan.entityId, resource };
 }
