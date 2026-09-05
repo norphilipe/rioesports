@@ -1,45 +1,100 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
-const CALLBACK_PATH = "/api/auth/faceit/callback";
+const TOKEN_ENDPOINT = "https://api.faceit.com/auth/v1/oauth/token";
+const USERINFO_ENDPOINT = "https://api.faceit.com/auth/v1/resources/userinfo";
+const STATE_COOKIE = "rio_faceit_oauth_state";
+const VERIFIER_COOKIE = "rio_faceit_oauth_verifier";
 
-/**
- * FACEIT OAuth callback entry point.
- *
- * The production URL registered in FACEIT App Studio must be:
- * https://rioesports.com.br/api/auth/faceit/callback
- *
- * This endpoint intentionally does not persist OAuth data yet. The next
- * integration step will exchange the authorization code using the FACEIT
- * OAuth client credentials and link the verified FACEIT identity to the
- * authenticated Rio Esports user.
- */
+type FaceitTokenResponse = { access_token?: string };
+type FaceitUserInfo = { sub?: string; nickname?: string };
+
+function profileRedirect(request: Request, status: string) {
+  const url = new URL("/perfil", request.url);
+  url.searchParams.set("faceit", status);
+  return url;
+}
+
+function clearOAuthCookies(response: NextResponse) {
+  for (const name of [STATE_COOKIE, VERIFIER_COOKIE]) {
+    response.cookies.set(name, "", { httpOnly: true, path: "/api/auth/faceit", maxAge: 0 });
+  }
+}
+
+function getFaceitConfig() {
+  const clientId = process.env.FACEIT_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.FACEIT_OAUTH_CLIENT_SECRET;
+  const redirectUri = process.env.FACEIT_OAUTH_REDIRECT_URI;
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error("FACEIT OAuth credentials are not configured.");
+  }
+  return { clientId, clientSecret, redirectUri };
+}
+
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const providerError = searchParams.get("error");
-  const code = searchParams.get("code");
+  const providerError = request.nextUrl.searchParams.get("error");
+  const code = request.nextUrl.searchParams.get("code");
+  const receivedState = request.nextUrl.searchParams.get("state");
+  const expectedState = request.cookies.get(STATE_COOKIE)?.value;
+  const codeVerifier = request.cookies.get(VERIFIER_COOKIE)?.value;
 
-  if (providerError) {
-    const redirectUrl = new URL("/perfil", request.url);
-    redirectUrl.searchParams.set("faceit", "error");
-    return NextResponse.redirect(redirectUrl);
+  if (providerError || !code || !receivedState || !expectedState || !codeVerifier || receivedState !== expectedState) {
+    const response = NextResponse.redirect(profileRedirect(request, "error"));
+    clearOAuthCookies(response);
+    return response;
   }
 
-  if (!code) {
-    return NextResponse.json(
-      {
-        error: "FACEIT OAuth callback is missing the authorization code.",
-        callback: CALLBACK_PATH,
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    const response = NextResponse.redirect(new URL("/login", request.url));
+    clearOAuthCookies(response);
+    return response;
+  }
+
+  try {
+    const { clientId, clientSecret, redirectUri } = getFaceitConfig();
+    const tokenRequest = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+    });
+    const basicCredentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const tokenResponse = await fetch(TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        authorization: `Basic ${basicCredentials}`,
+        "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
       },
-      { status: 400 },
-    );
-  }
+      body: tokenRequest.toString(),
+      cache: "no-store",
+    });
 
-  return NextResponse.json(
-    {
-      status: "pending_integration",
-      message:
-        "FACEIT authorization was received. Identity linking will be completed after the OAuth client credentials and persistence flow are configured.",
-    },
-    { status: 501 },
-  );
+    if (!tokenResponse.ok) throw new Error("FACEIT token exchange failed.");
+    const token = await tokenResponse.json() as FaceitTokenResponse;
+    if (!token.access_token) throw new Error("FACEIT token response did not include an access token.");
+
+    const userInfoResponse = await fetch(USERINFO_ENDPOINT, {
+      headers: { authorization: `Bearer ${token.access_token}` },
+      cache: "no-store",
+    });
+    if (!userInfoResponse.ok) throw new Error("FACEIT user information request failed.");
+
+    const faceitUser = await userInfoResponse.json() as FaceitUserInfo;
+    if (!faceitUser.sub) throw new Error("FACEIT user information did not include a subject identifier.");
+
+    const { error } = await supabase.rpc("link_verified_faceit_identity", {
+      target_external_id: faceitUser.sub,
+      target_external_username: faceitUser.nickname ?? null,
+    });
+
+    const response = NextResponse.redirect(profileRedirect(request, error ? "error" : "linked"));
+    clearOAuthCookies(response);
+    return response;
+  } catch {
+    const response = NextResponse.redirect(profileRedirect(request, "error"));
+    clearOAuthCookies(response);
+    return response;
+  }
 }
