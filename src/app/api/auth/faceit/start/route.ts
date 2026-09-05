@@ -28,16 +28,30 @@ async function sha256Base64Url(value: string) {
 function getFaceitConfig() {
   const clientId = process.env.FACEIT_OAUTH_CLIENT_ID;
   const redirectUri = process.env.FACEIT_OAUTH_REDIRECT_URI;
-  if (!clientId || !redirectUri) throw new Error("FACEIT OAuth is not configured.");
+
+  if (!clientId || !redirectUri) {
+    throw new Error("FACEIT OAuth environment variables are not configured.");
+  }
+
   return { clientId, redirectUri };
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.url));
-
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      throw new Error(`Supabase authentication check failed: ${userError.message}`);
+    }
+
+    if (!user) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
     const { clientId, redirectUri } = getFaceitConfig();
     const state = randomBase64Url(32);
     const codeVerifier = randomBase64Url(64);
@@ -60,12 +74,21 @@ export async function GET(request: Request) {
       path: "/api/auth/faceit",
       maxAge: 10 * 60,
     };
+
     response.cookies.set(STATE_COOKIE, state, cookieOptions);
     response.cookies.set(VERIFIER_COOKIE, codeVerifier, cookieOptions);
+
     return response;
-  } catch {
-    const url = new URL("/perfil", request.url);
-    url.searchParams.set("faceit", "configuration_error");
-    return NextResponse.redirect(url);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown initialization error.";
+    console.error("FACEIT OAuth start failed", error);
+
+    return NextResponse.json(
+      {
+        error: "FACEIT OAuth start failed",
+        reason: message,
+      },
+      { status: 500 },
+    );
   }
 }
