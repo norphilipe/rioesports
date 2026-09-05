@@ -18,6 +18,16 @@ using (profile_id = (select auth.uid()));
 alter policy "Users can view own trust" on public.player_trust
 using (profile_id = (select auth.uid()));
 
+alter policy "Users can view own rating history" on public.rating_history
+using (
+  exists (
+    select 1
+    from public.player_game_profiles pgp
+    where pgp.id = rating_history.player_game_profile_id
+      and pgp.profile_id = (select auth.uid())
+  )
+);
+
 alter policy "Platform admins can create news" on public.news_posts
 with check ((author_id = (select auth.uid())) and (select public.is_platform_admin()));
 
