@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicSupabaseEnv } from "@/lib/env";
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const { supabaseUrl, supabasePublishableKey } = getPublicSupabaseEnv();
   const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
@@ -18,7 +18,10 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user && request.nextUrl.pathname.startsWith("/perfil")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
