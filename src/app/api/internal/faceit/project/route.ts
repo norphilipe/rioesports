@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "edge";
-
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -38,18 +36,10 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         if (projectionError) throw projectionError;
         if (!projection) throw new Error("Match projection not found.");
-
-        await supabase.from("faceit_projection_jobs").update({
-          status: "processed",
-          processed_at: new Date().toISOString(),
-          last_error: null,
-        }).eq("id", job.id);
+        await supabase.from("faceit_projection_jobs").update({ status: "processed", processed_at: new Date().toISOString(), last_error: null }).eq("id", job.id);
         results.push({ id: job.id, matchId: projection.faceit_match_id, status: "processed" });
       } catch (jobError) {
-        await supabase.from("faceit_projection_jobs").update({
-          status: "failed",
-          last_error: jobError instanceof Error ? jobError.message : "Projection failed",
-        }).eq("id", job.id);
+        await supabase.from("faceit_projection_jobs").update({ status: "failed", last_error: jobError instanceof Error ? jobError.message : "Projection failed" }).eq("id", job.id);
         results.push({ id: job.id, status: "failed" });
       }
     }

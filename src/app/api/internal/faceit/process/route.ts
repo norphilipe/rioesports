@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { classifyFaceitEvent, extractFaceitEntityId } from "@/lib/faceit/events";
 import { synchronizeAndQueueFaceitEvent } from "@/lib/faceit/sync-and-project";
 
-export const runtime = "edge";
-
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
