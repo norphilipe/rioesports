@@ -1,6 +1,8 @@
 import { fetchFaceitChampionship, fetchFaceitHub, fetchFaceitMatch, fetchFaceitTournament } from "./api";
 import { classifyFaceitEvent } from "./events";
 import { planFaceitEvent } from "./process-event";
+import { projectFaceitMatch } from "./project-match";
+import { storeFaceitMatchProjection } from "./store-match-projection";
 import { storeFaceitResource } from "./store-resource";
 
 export type FaceitSyncResult = {
@@ -25,6 +27,11 @@ export async function synchronizeFaceitEvent(eventType: string | null, payload: 
   const kind = classifyFaceitEvent(eventType);
   if (kind !== "unknown") {
     await storeFaceitResource(kind, plan.entityId, resource, eventType);
+  }
+
+  if (plan.kind === "match") {
+    const projection = projectFaceitMatch(resource);
+    if (projection) await storeFaceitMatchProjection(projection);
   }
 
   return { action: plan.action, entityId: plan.entityId, resource };
