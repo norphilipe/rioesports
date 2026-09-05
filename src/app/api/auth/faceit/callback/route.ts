@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const runtime = "edge";
+
 const TOKEN_ENDPOINT = "https://api.faceit.com/auth/v1/oauth/token";
 const USERINFO_ENDPOINT = "https://api.faceit.com/auth/v1/resources/userinfo";
 const STATE_COOKIE = "rio_faceit_oauth_state";
@@ -25,10 +27,12 @@ function getFaceitConfig() {
   const clientId = process.env.FACEIT_OAUTH_CLIENT_ID;
   const clientSecret = process.env.FACEIT_OAUTH_CLIENT_SECRET;
   const redirectUri = process.env.FACEIT_OAUTH_REDIRECT_URI;
-  if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error("FACEIT OAuth credentials are not configured.");
-  }
+  if (!clientId || !clientSecret || !redirectUri) throw new Error("FACEIT OAuth credentials are not configured.");
   return { clientId, clientSecret, redirectUri };
+}
+
+function basicAuthorization(clientId: string, clientSecret: string) {
+  return `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -54,33 +58,19 @@ export async function GET(request: NextRequest) {
 
   try {
     const { clientId, clientSecret, redirectUri } = getFaceitConfig();
-    const tokenRequest = new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier,
-    });
-    const basicCredentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const tokenRequest = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, code_verifier: codeVerifier });
     const tokenResponse = await fetch(TOKEN_ENDPOINT, {
       method: "POST",
-      headers: {
-        authorization: `Basic ${basicCredentials}`,
-        "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
-      },
+      headers: { authorization: basicAuthorization(clientId, clientSecret), "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
       body: tokenRequest.toString(),
       cache: "no-store",
     });
-
     if (!tokenResponse.ok) throw new Error("FACEIT token exchange failed.");
     const token = await tokenResponse.json() as FaceitTokenResponse;
     if (!token.access_token) throw new Error("FACEIT token response did not include an access token.");
 
-    const userInfoResponse = await fetch(USERINFO_ENDPOINT, {
-      headers: { authorization: `Bearer ${token.access_token}` },
-      cache: "no-store",
-    });
+    const userInfoResponse = await fetch(USERINFO_ENDPOINT, { headers: { authorization: `Bearer ${token.access_token}` }, cache: "no-store" });
     if (!userInfoResponse.ok) throw new Error("FACEIT user information request failed.");
-
     const faceitUser = await userInfoResponse.json() as FaceitUserInfo;
     if (!faceitUser.sub) throw new Error("FACEIT user information did not include a subject identifier.");
 
@@ -88,7 +78,6 @@ export async function GET(request: NextRequest) {
       target_external_id: faceitUser.sub,
       target_external_username: faceitUser.nickname ?? null,
     });
-
     const response = NextResponse.redirect(profileRedirect(request, error ? "error" : "linked"));
     clearOAuthCookies(response);
     return response;
