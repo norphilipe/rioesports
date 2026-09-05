@@ -1,7 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { classifyFaceitEvent, extractFaceitEntityId } from "@/lib/faceit/events";
-import { synchronizeFaceitEvent } from "@/lib/faceit/sync";
+import { synchronizeAndQueueFaceitEvent } from "@/lib/faceit/sync-and-project";
 
 export const runtime = "edge";
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const supabase = getAdminClient();
     const { data: events, error } = await supabase
       .from("faceit_webhook_events")
-      .select("id,event_type,payload")
+      .select("id,event_type,payload,processing_attempts")
       .eq("processing_status", "pending")
       .order("received_at", { ascending: true })
       .limit(20);
@@ -37,26 +37,24 @@ export async function POST(request: NextRequest) {
       const payload = event.payload;
       const kind = classifyFaceitEvent(eventType);
       const entityId = extractFaceitEntityId(payload);
+      const attempts = Number(event.processing_attempts ?? 0) + 1;
 
       await supabase.from("faceit_webhook_events").update({
         event_kind: kind,
         entity_id: entityId,
         processing_status: "processing",
-        processing_attempts: 1,
+        processing_attempts: attempts,
       }).eq("id", event.id);
 
       try {
-        const sync = await synchronizeFaceitEvent(eventType, payload);
+        const sync = await synchronizeAndQueueFaceitEvent(eventType, payload);
         await supabase.from("faceit_webhook_events").update({
           processing_status: sync.action === "ignored" ? "ignored" : "processed",
           processed_at: new Date().toISOString(),
         }).eq("id", event.id);
         results.push({ id: event.id, status: "processed", action: sync.action });
       } catch (processingError) {
-        await supabase.from("faceit_webhook_events").update({
-          processing_status: "failed",
-          processing_attempts: 2,
-        }).eq("id", event.id);
+        await supabase.from("faceit_webhook_events").update({ processing_status: "failed" }).eq("id", event.id);
         results.push({ id: event.id, status: "failed" });
         console.error("FACEIT event processing failed", processingError);
       }
