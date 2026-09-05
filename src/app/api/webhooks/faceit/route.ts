@@ -1,8 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { createHash, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const SECURITY_HEADER = "x-rioesports-webhook-secret";
 
@@ -10,15 +9,26 @@ function isAuthorized(request: NextRequest) {
   const expected = process.env.FACEIT_WEBHOOK_SECRET;
   const received = request.headers.get(SECURITY_HEADER);
 
-  if (!expected || !received) return false;
+  if (!expected || !received || expected.length !== received.length) {
+    return false;
+  }
 
-  const expectedBuffer = Buffer.from(expected);
-  const receivedBuffer = Buffer.from(received);
+  let mismatch = 0;
 
-  return (
-    expectedBuffer.length === receivedBuffer.length &&
-    timingSafeEqual(expectedBuffer, receivedBuffer)
-  );
+  for (let index = 0; index < expected.length; index += 1) {
+    mismatch |= expected.charCodeAt(index) ^ received.charCodeAt(index);
+  }
+
+  return mismatch === 0;
+}
+
+async function sha256Hex(value: string) {
+  const encoded = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function getAdminClient() {
@@ -53,7 +63,7 @@ export async function POST(request: NextRequest) {
     (typeof payload.type === "string" && payload.type) ||
     null;
 
-  const fingerprint = createHash("sha256").update(rawBody).digest("hex");
+  const fingerprint = await sha256Hex(rawBody);
 
   try {
     const supabase = getAdminClient();
