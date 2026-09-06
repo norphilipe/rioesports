@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const runtime = "edge";
-
 const TOKEN_ENDPOINT = "https://api.faceit.com/auth/v1/oauth/token";
 const USERINFO_ENDPOINT = "https://api.faceit.com/auth/v1/resources/userinfo";
 const STATE_COOKIE = "rio_faceit_oauth_state";
@@ -48,15 +46,20 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    clearOAuthCookies(response);
-    return response;
-  }
-
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) throw new Error(`Supabase authentication check failed: ${userError.message}`);
+    if (!user) {
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      clearOAuthCookies(response);
+      return response;
+    }
+
     const { clientId, clientSecret, redirectUri } = getFaceitConfig();
     const tokenRequest = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, code_verifier: codeVerifier });
     const tokenResponse = await fetch(TOKEN_ENDPOINT, {
@@ -65,12 +68,12 @@ export async function GET(request: NextRequest) {
       body: tokenRequest.toString(),
       cache: "no-store",
     });
-    if (!tokenResponse.ok) throw new Error("FACEIT token exchange failed.");
+    if (!tokenResponse.ok) throw new Error(`FACEIT token exchange failed with status ${tokenResponse.status}.`);
     const token = await tokenResponse.json() as FaceitTokenResponse;
     if (!token.access_token) throw new Error("FACEIT token response did not include an access token.");
 
     const userInfoResponse = await fetch(USERINFO_ENDPOINT, { headers: { authorization: `Bearer ${token.access_token}` }, cache: "no-store" });
-    if (!userInfoResponse.ok) throw new Error("FACEIT user information request failed.");
+    if (!userInfoResponse.ok) throw new Error(`FACEIT user information request failed with status ${userInfoResponse.status}.`);
     const faceitUser = await userInfoResponse.json() as FaceitUserInfo;
     if (!faceitUser.sub) throw new Error("FACEIT user information did not include a subject identifier.");
 
@@ -81,7 +84,8 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(profileRedirect(request, error ? "error" : "linked"));
     clearOAuthCookies(response);
     return response;
-  } catch {
+  } catch (error) {
+    console.error("FACEIT OAuth callback failed", error);
     const response = NextResponse.redirect(profileRedirect(request, "error"));
     clearOAuthCookies(response);
     return response;
