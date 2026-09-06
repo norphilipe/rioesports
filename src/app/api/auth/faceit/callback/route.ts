@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getFaceitCallbackConfig } from "@/lib/env/faceit";
 
 const TOKEN_ENDPOINT = "https://api.faceit.com/auth/v1/oauth/token";
 const USERINFO_ENDPOINT = "https://api.faceit.com/auth/v1/resources/userinfo";
@@ -19,14 +20,6 @@ function clearOAuthCookies(response: NextResponse) {
   for (const name of [STATE_COOKIE, VERIFIER_COOKIE]) {
     response.cookies.set(name, "", { httpOnly: true, path: "/api/auth/faceit", maxAge: 0 });
   }
-}
-
-function getFaceitConfig() {
-  const clientId = process.env.FACEIT_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.FACEIT_OAUTH_CLIENT_SECRET;
-  const redirectUri = process.env.FACEIT_OAUTH_REDIRECT_URI;
-  if (!clientId || !clientSecret || !redirectUri) throw new Error("FACEIT OAuth credentials are not configured.");
-  return { clientId, clientSecret, redirectUri };
 }
 
 function basicAuthorization(clientId: string, clientSecret: string) {
@@ -60,7 +53,7 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    const { clientId, clientSecret, redirectUri } = getFaceitConfig();
+    const { clientId, clientSecret, redirectUri } = await getFaceitCallbackConfig();
     const tokenRequest = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, code_verifier: codeVerifier });
     const tokenResponse = await fetch(TOKEN_ENDPOINT, {
       method: "POST",
