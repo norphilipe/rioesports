@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getFaceitStartConfig } from "@/lib/env/faceit";
 
 const FACEIT_AUTHORIZATION_ENDPOINT = "https://accounts.faceit.com";
 const STATE_COOKIE = "rio_faceit_oauth_state";
@@ -23,17 +24,6 @@ async function sha256Base64Url(value: string) {
   return base64Url(new Uint8Array(digest));
 }
 
-function getFaceitConfig() {
-  const clientId = process.env.FACEIT_OAUTH_CLIENT_ID;
-  const redirectUri = process.env.FACEIT_OAUTH_REDIRECT_URI;
-
-  if (!clientId || !redirectUri) {
-    throw new Error("FACEIT OAuth environment variables are not configured.");
-  }
-
-  return { clientId, redirectUri };
-}
-
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
@@ -50,7 +40,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const { clientId, redirectUri } = getFaceitConfig();
+    const { clientId, redirectUri } = await getFaceitStartConfig();
     const state = randomBase64Url(32);
     const codeVerifier = randomBase64Url(64);
     const codeChallenge = await sha256Base64Url(codeVerifier);
