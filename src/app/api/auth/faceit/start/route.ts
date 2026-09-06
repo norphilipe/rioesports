@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const runtime = "edge";
-
 const FACEIT_AUTHORIZATION_ENDPOINT = "https://accounts.faceit.com";
 const STATE_COOKIE = "rio_faceit_oauth_state";
 const VERIFIER_COOKIE = "rio_faceit_oauth_verifier";
