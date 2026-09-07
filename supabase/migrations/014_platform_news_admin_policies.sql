@@ -1,8 +1,20 @@
 -- RIO ESPORTS
--- Migration 014 - Platform news administration policies
+-- Migration 014 - Platform news access and administration policies
 
 alter table public.platform_news enable row level security;
 
+-- Public visitors may only read news that has actually been published.
+drop policy if exists "public can view published platform news" on public.platform_news;
+create policy "public can view published platform news"
+on public.platform_news
+for select
+to anon, authenticated
+using (
+  published_at is not null
+  and published_at <= timezone('utc', now())
+);
+
+-- Platform administrators can manage the complete editorial catalog, including drafts.
 drop policy if exists "platform admins can view all platform news" on public.platform_news;
 create policy "platform admins can view all platform news"
 on public.platform_news
