@@ -5,26 +5,21 @@ interface Env {
   FACEIT_PROCESSOR_SECRET?: string;
 }
 
-const PROCESSOR_CRON = "*/5 * * * *";
-const PROJECTOR_CRON = "*/5 * * * *";
+const FACEIT_CRON = "*/5 * * * *";
+const BASE_URL = "https://rioesports.com.br";
 
 async function triggerProcessor(path: string, env: Env): Promise<void> {
   const secret = env.FACEIT_PROCESSOR_SECRET;
   if (!secret) {
-    console.error("FACEIT_PROCESSOR_SECRET is not configured.");
-    return;
+    throw new Error("FACEIT_PROCESSOR_SECRET is not configured.");
   }
 
-  const response = await handler.fetch(
-    new Request(`https://rioesports.com.br${path}`, {
-      method: "POST",
-      headers: {
-        "x-rioesports-processor-secret": secret,
-      },
-    }),
-    env,
-    new ExecutionContext(),
-  );
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "x-rioesports-processor-secret": secret,
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`Scheduled request to ${path} failed with ${response.status}.`);
@@ -35,18 +30,13 @@ export default {
   fetch: handler.fetch,
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    const tasks: Promise<void>[] = [];
+    if (controller.cron !== FACEIT_CRON) return;
 
-    if (controller.cron === PROCESSOR_CRON) {
-      tasks.push(triggerProcessor("/api/internal/faceit/process", env));
-    }
-
-    if (controller.cron === PROJECTOR_CRON) {
-      tasks.push(triggerProcessor("/api/internal/faceit/project", env));
-    }
-
-    if (tasks.length > 0) {
-      ctx.waitUntil(Promise.all(tasks));
-    }
+    ctx.waitUntil(
+      Promise.all([
+        triggerProcessor("/api/internal/faceit/process", env),
+        triggerProcessor("/api/internal/faceit/project", env),
+      ]),
+    );
   },
 } satisfies ExportedHandler<Env>;
