@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRuntimeEnvValue } from "@/lib/env/runtime";
 import { safeSecretEqual } from "@/lib/security/safe-secret";
 
+async function readResponse(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text().catch(() => "");
+
+  if (contentType.includes("application/json")) {
+    try {
+      return { status: response.status, ok: response.ok, body: JSON.parse(text) };
+    } catch {
+      // Fall back to the raw body when an upstream response advertises invalid JSON.
+    }
+  }
+
+  return { status: response.status, ok: response.ok, body: text || null };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cronSecret = await requireRuntimeEnvValue("CRON_SECRET");
@@ -26,8 +41,10 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const events = await eventsResponse.json().catch(() => null);
-    const projections = await projectionsResponse.json().catch(() => null);
+    const [events, projections] = await Promise.all([
+      readResponse(eventsResponse),
+      readResponse(projectionsResponse),
+    ]);
 
     if (!eventsResponse.ok || !projectionsResponse.ok) {
       return NextResponse.json(
