@@ -1,18 +1,9 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRuntimeEnvValue } from "@/lib/env/runtime";
+import { safeSecretEqual } from "@/lib/security/safe-secret";
 
 const SECURITY_HEADER = "x-rioesports-webhook-secret";
-
-function safeSecretEqual(expected: string, received: string | null) {
-  if (!received || expected.length !== received.length) return false;
-
-  let mismatch = 0;
-  for (let index = 0; index < expected.length; index += 1) {
-    mismatch |= expected.charCodeAt(index) ^ received.charCodeAt(index);
-  }
-  return mismatch === 0;
-}
 
 async function isAuthorized(request: NextRequest) {
   const expected = await requireRuntimeEnvValue("FACEIT_WEBHOOK_SECRET");
