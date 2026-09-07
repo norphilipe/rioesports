@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { processFaceitEvents, processFaceitProjections } from "@/lib/faceit/background";
 import { requireRuntimeEnvValue } from "@/lib/env/runtime";
 import { safeSecretEqual } from "@/lib/security/safe-secret";
-
-async function readResponse(response: Response) {
-  const contentType = response.headers.get("content-type") ?? "";
-  const text = await response.text().catch(() => "");
-
-  if (contentType.includes("application/json")) {
-    try {
-      return { status: response.status, ok: response.ok, body: JSON.parse(text) };
-    } catch {
-      // Fall back to the raw body when an upstream response advertises invalid JSON.
-    }
-  }
-
-  return { status: response.status, ok: response.ok, body: text || null };
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,38 +12,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const processorSecret = await requireRuntimeEnvValue("FACEIT_PROCESSOR_SECRET");
-    const origin = request.nextUrl.origin;
-    const headers = { "x-rioesports-processor-secret": processorSecret };
-
-    const [eventsResponse, projectionsResponse] = await Promise.all([
-      fetch(new URL("/api/internal/faceit/process", origin), {
-        method: "POST",
-        headers,
-      }),
-      fetch(new URL("/api/internal/faceit/project", origin), {
-        method: "POST",
-        headers,
-      }),
+    const [events, projections] = await Promise.allSettled([
+      processFaceitEvents(),
+      processFaceitProjections(),
     ]);
 
-    const [events, projections] = await Promise.all([
-      readResponse(eventsResponse),
-      readResponse(projectionsResponse),
-    ]);
+    const eventsResult = events.status === "fulfilled"
+      ? events.value
+      : { error: events.reason instanceof Error ? events.reason.message : "Event processor failed" };
+    const projectionsResult = projections.status === "fulfilled"
+      ? projections.value
+      : { error: projections.reason instanceof Error ? projections.reason.message : "Projection processor failed" };
 
-    if (!eventsResponse.ok || !projectionsResponse.ok) {
+    if (events.status !== "fulfilled" || projections.status !== "fulfilled") {
       return NextResponse.json(
-        {
-          error: "FACEIT processing failed",
-          events,
-          projections,
-        },
+        { error: "FACEIT processing failed", events: eventsResult, projections: projectionsResult },
         { status: 502 },
       );
     }
 
-    return NextResponse.json({ ok: true, events, projections });
+    return NextResponse.json({ ok: true, events: eventsResult, projections: projectionsResult });
   } catch (error) {
     console.error("FACEIT cron trigger failed", error);
     return NextResponse.json({ error: "Cron temporarily unavailable" }, { status: 503 });
