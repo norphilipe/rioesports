@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 export default async function NoticiasPage() {
   const supabase = await createClient();
   const { data: posts } = await supabase
-    .from("news_posts")
+    .from("platform_news")
     .select("title,slug,excerpt,published_at,created_at")
-    .eq("status", "published")
+    .not("published_at", "is", null)
     .lte("published_at", new Date().toISOString())
     .order("published_at", { ascending: false })
     .limit(20);
