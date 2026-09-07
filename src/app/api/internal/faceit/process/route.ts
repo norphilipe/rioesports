@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { classifyFaceitEvent, extractFaceitEntityId } from "@/lib/faceit/events";
 import { synchronizeAndQueueFaceitEvent } from "@/lib/faceit/sync-and-project";
 import { requireRuntimeEnvValue } from "@/lib/env/runtime";
+import { safeSecretEqual } from "@/lib/security/safe-secret";
 
 async function getAdminClient() {
   const [url, serviceRoleKey] = await Promise.all([
@@ -17,8 +18,7 @@ async function getAdminClient() {
 
 async function isAuthorized(request: NextRequest) {
   const secret = await requireRuntimeEnvValue("FACEIT_PROCESSOR_SECRET");
-  const received = request.headers.get("x-rioesports-processor-secret");
-  return Boolean(received && secret === received);
+  return safeSecretEqual(secret, request.headers.get("x-rioesports-processor-secret"));
 }
 
 export async function POST(request: NextRequest) {
