@@ -2,25 +2,37 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { classifyFaceitEvent, extractFaceitEntityId } from "@/lib/faceit/events";
 import { synchronizeAndQueueFaceitEvent } from "@/lib/faceit/sync-and-project";
+import { requireRuntimeEnvValue } from "@/lib/env/runtime";
 
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) throw new Error("Supabase processing client is not configured.");
-  return createSupabaseClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+async function getAdminClient() {
+  const [url, serviceRoleKey] = await Promise.all([
+    requireRuntimeEnvValue("NEXT_PUBLIC_SUPABASE_URL"),
+    requireRuntimeEnvValue("SUPABASE_SERVICE_ROLE_KEY"),
+  ]);
+
+  return createSupabaseClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
-function isAuthorized(request: NextRequest) {
-  const secret = process.env.FACEIT_PROCESSOR_SECRET;
+async function isAuthorized(request: NextRequest) {
+  const secret = await requireRuntimeEnvValue("FACEIT_PROCESSOR_SECRET");
   const received = request.headers.get("x-rioesports-processor-secret");
-  return Boolean(secret && received && secret === received);
+  return Boolean(received && secret === received);
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    if (!(await isAuthorized(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } catch (error) {
+    console.error("FACEIT processor authorization configuration failed", error);
+    return NextResponse.json({ error: "Processor temporarily unavailable" }, { status: 503 });
+  }
 
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
     const { data: events, error } = await supabase
       .from("faceit_webhook_events")
       .select("id,event_type,payload,processing_attempts")
