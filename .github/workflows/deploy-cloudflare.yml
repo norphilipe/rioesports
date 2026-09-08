@@ -28,3 +28,12 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: deploy --keep-vars
+      - name: Verify deployed Worker liveness
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 20 https://rioesports.norphilipe.workers.dev/api/health/live; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
