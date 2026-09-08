@@ -12,6 +12,7 @@ as $$
   select public.is_platform_admin();
 $$;
 revoke all on function public.is_current_platform_admin() from public;
+revoke execute on function public.is_current_platform_admin() from anon;
 grant execute on function public.is_current_platform_admin() to authenticated;
 
 create unique index if not exists game_seasons_one_active_per_game on public.game_seasons(game_id) where is_active;
@@ -69,6 +70,11 @@ revoke all on function public.admin_set_game_season_active(uuid, boolean) from p
 revoke all on function public.admin_game_snapshot() from public;
 revoke all on function public.admin_ranking_snapshot(uuid, integer) from public;
 revoke all on function public.admin_season_snapshot() from public;
+revoke execute on function public.admin_create_game_season(uuid, text, timestamptz, timestamptz, boolean) from anon;
+revoke execute on function public.admin_set_game_season_active(uuid, boolean) from anon;
+revoke execute on function public.admin_game_snapshot() from anon;
+revoke execute on function public.admin_ranking_snapshot(uuid, integer) from anon;
+revoke execute on function public.admin_season_snapshot() from anon;
 grant execute on function public.admin_create_game_season(uuid, text, timestamptz, timestamptz, boolean) to authenticated;
 grant execute on function public.admin_set_game_season_active(uuid, boolean) to authenticated;
 grant execute on function public.admin_game_snapshot() to authenticated;
