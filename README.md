@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RIO ESPORTS
 
-## Getting Started
+Plataforma competitiva de esports voltada à comunidade do Rio de Janeiro.
 
-First, run the development server:
+## Principais módulos
+
+- autenticação e perfis de jogadores;
+- equipes e campeonatos;
+- matchmaking competitivo;
+- integração operacional com FACEIT;
+- integração de identidade competitiva com Steam;
+- ranking e estatísticas;
+- painel administrativo;
+- moderação e restrições competitivas;
+- notícias e conteúdo da plataforma.
+
+## Arquitetura
+
+- **Aplicação:** Next.js + TypeScript
+- **Banco e autenticação:** Supabase
+- **Deploy:** Cloudflare Workers via OpenNext
+- **Automação:** GitHub Actions
+
+## Desenvolvimento local
+
+### 1. Instale as dependências
+
+```bash
+npm install
+```
+
+### 2. Configure o ambiente
+
+Copie `.env.example` para `.env.local` e preencha as variáveis necessárias.
+
+```bash
+cp .env.example .env.local
+```
+
+Nunca envie `.env.local` ou segredos reais ao GitHub.
+
+### 3. Execute a aplicação
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Validação
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Antes de abrir um pull request, execute:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run typecheck
+npm run build
+npm run build:next
+```
 
-## Learn More
+O GitHub Actions executa essas validações automaticamente em pull requests e na branch `main`.
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pushes para `main` acionam o pipeline de deploy para a Cloudflare.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Os segredos de infraestrutura devem permanecer configurados exclusivamente no provedor correspondente e nunca no código-fonte.
 
-## Deploy on Vercel
+## Banco de dados
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+As alterações estruturais ficam em `supabase/migrations/`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Migrations históricas devem ser tratadas como imutáveis quando já aplicadas em produção. Novas alterações devem ser adicionadas como novas migrations para preservar a rastreabilidade dos ambientes.
+
+## Administração e moderação
+
+Operações administrativas sensíveis devem ser protegidas no servidor e/ou no banco. A interface administrativa não deve ser a única camada de autorização.
+
+## Integrações externas
+
+A disponibilidade operacional de integrações externas depende da configuração das respectivas credenciais e segredos nos ambientes de produção. Consulte `.env.example` para identificar as variáveis esperadas pela aplicação.
