@@ -30,10 +30,14 @@ jobs:
           command: deploy --keep-vars
       - name: Verify deployed Worker liveness
         run: |
+          curl --fail --silent --show-error --max-time 20 https://rioesports.norphilipe.workers.dev/api/health/live
+      - name: Verify deployed Worker readiness
+        run: |
           for attempt in 1 2 3 4 5; do
-            if curl --fail --silent --show-error --max-time 20 https://rioesports.norphilipe.workers.dev/api/health/live; then
+            if curl --fail --silent --show-error --max-time 20 https://rioesports.norphilipe.workers.dev/api/health; then
               exit 0
             fi
             sleep 5
           done
+          echo "Worker is live but its production dependencies are not ready." >&2
           exit 1
