@@ -1,3 +1,5 @@
+import { requireRuntimeEnvValue } from "@/lib/env/runtime";
+
 const FACEIT_API_BASE_URL = "https://open.faceit.com/data/v4";
 
 export class FaceitApiError extends Error {
@@ -7,15 +9,16 @@ export class FaceitApiError extends Error {
   }
 }
 
-function getServerApiKey() {
-  const apiKey = process.env.FACEIT_SERVER_API_KEY;
-  if (!apiKey) throw new FaceitApiError("FACEIT_SERVER_API_KEY is not configured.");
-  return apiKey;
+async function getServerApiKey() {
+  const configured = await requireRuntimeEnvValue("FACEIT_SERVER_API_KEY").catch(async () => {
+    return requireRuntimeEnvValue("FACEIT_API_KEY");
+  });
+  return configured;
 }
 
 export async function fetchFaceitResource<T>(path: string): Promise<T> {
   const response = await fetch(`${FACEIT_API_BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${getServerApiKey()}` },
+    headers: { Authorization: `Bearer ${await getServerApiKey()}` },
     cache: "no-store",
   });
 
