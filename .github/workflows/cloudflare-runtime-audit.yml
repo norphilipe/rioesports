@@ -47,7 +47,7 @@ jobs:
           echo 'Configured secret names:'
           node -e "const d=require('/tmp/secrets.json'); console.log(d.map(x=>x.name).join('\\n'))"
           echo 'Configured binding names/types:'
-          node -e "const d=require('/tmp/settings.json'); if(!d.success) { console.error(JSON.stringify(d)); process.exit(1) }; for (const b of (d.result?.bindings||[])) console.log(`${b.name} (${b.type})`)"
+          node -e "const d=require('/tmp/settings.json'); if(!d.success) { console.error(JSON.stringify(d)); process.exit(1) }; for (const b of (d.result?.bindings||[])) console.log(b.name + ' (' + b.type + ')')"
       - name: Assert required production configuration
         run: |
           required=(NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY)
