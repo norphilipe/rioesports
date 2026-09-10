@@ -35,6 +35,10 @@ jobs:
           const token = process.env.CLOUDFLARE_API_TOKEN;
           const apiBase = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/rioesports`;
           const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'];
+          const fallbackVersions = [
+            '2df1a85c-9b7a-449e-bfb1-8b41e024460f',
+            'ea79279a-b7e5-41e2-aed8-cdc3cdfc7aff',
+          ];
 
           async function api(path) {
             const response = await fetch(`${apiBase}${path}`, {
@@ -47,30 +51,60 @@ jobs:
             return body.result;
           }
 
+          function bindingsFrom(detail) {
+            return detail?.resources?.bindings || detail?.bindings || [];
+          }
+
+          function valuesFrom(bindings) {
+            return Object.fromEntries(
+              bindings
+                .filter((binding) => binding.type === 'plain_text' && required.includes(binding.name))
+                .map((binding) => [binding.name, binding.text])
+            );
+          }
+
+          function hasRequired(values) {
+            return required.every((name) => typeof values[name] === 'string' && values[name].length > 0);
+          }
+
+          function restore(values, versionId) {
+            const configPath = 'wrangler.jsonc';
+            const config = fs.readFileSync(configPath, 'utf8');
+            const vars = JSON.stringify(values, null, 2).replace(/^/gm, '  ');
+            const varsBlock = `  "vars": ${vars},\n`;
+            const updated = config.includes('"vars"')
+              ? config.replace(/  "vars": \{[\s\S]*?\n  \},\n/, varsBlock)
+              : config.replace('  "keep_vars": true,\n', `${varsBlock}  "keep_vars": true,\n`);
+            fs.writeFileSync(configPath, updated);
+            console.log(`Restored required Supabase runtime variables from Worker version ${versionId}`);
+          }
+
           (async () => {
             const versionList = await api('/versions?per_page=50');
-            const versions = Array.isArray(versionList) ? versionList : (versionList?.versions || []);
+            const versions = Array.isArray(versionList)
+              ? versionList
+              : (versionList?.versions || versionList?.result || []);
 
-            for (const version of versions) {
-              const detail = await api(`/versions/${version.id}`);
-              const bindings = detail?.resources?.bindings || detail?.bindings || [];
-              const values = Object.fromEntries(
-                bindings
-                  .filter((binding) => binding.type === 'plain_text' && required.includes(binding.name))
-                  .map((binding) => [binding.name, binding.text])
-              );
+            const candidates = [
+              ...versions.map((version) => version.id).filter(Boolean),
+              ...fallbackVersions,
+            ];
 
-              if (required.every((name) => typeof values[name] === 'string' && values[name].length > 0)) {
-                const configPath = 'wrangler.jsonc';
-                const config = fs.readFileSync(configPath, 'utf8');
-                const vars = JSON.stringify(values, null, 2).replace(/^/gm, '  ');
-                const varsBlock = `  "vars": ${vars},\n`;
-                const updated = config.includes('"vars"')
-                  ? config.replace(/  "vars": \{[\\s\\S]*?\n  \},\n/, varsBlock)
-                  : config.replace('  "keep_vars": true,\n', `${varsBlock}  "keep_vars": true,\n`);
-                fs.writeFileSync(configPath, updated);
-                console.log(`Restored required Supabase runtime variables from Worker version ${version.id}`);
-                return;
+            const seen = new Set();
+            for (const versionId of candidates) {
+              if (seen.has(versionId)) continue;
+              seen.add(versionId);
+              try {
+                const detail = await api(`/versions/${versionId}`);
+                const values = valuesFrom(bindingsFrom(detail));
+                if (hasRequired(values)) {
+                  restore(values, versionId);
+                  return;
+                }
+              } catch (error) {
+                if (fallbackVersions.includes(versionId)) {
+                  console.log(`Known bootstrap version ${versionId} was not readable; continuing.`);
+                }
               }
             }
 
