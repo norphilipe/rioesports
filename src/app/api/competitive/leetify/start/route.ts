@@ -28,11 +28,10 @@ export async function GET(request: Request) {
     const response = await fetch(url, { headers, cache: "no-store" });
     if (!response.ok) return redirect(request, "error");
 
-    const profile = await response.json() as { id?: string; steam64_id?: string; name?: string; privacy_mode?: string };
+    const profile = await response.json() as { id?: string; steam64_id?: string; name?: string };
     if (!profile.id || profile.steam64_id !== steamIdentity.external_id) return redirect(request, "error");
 
-    const { error } = await supabase.rpc("link_optional_competitive_identity", {
-      target_provider: "leetify",
+    const { error } = await supabase.rpc("link_verified_leetify_identity", {
       target_external_id: profile.id,
       target_external_username: profile.name ?? profile.id,
     });
