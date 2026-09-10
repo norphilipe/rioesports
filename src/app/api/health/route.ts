@@ -11,12 +11,12 @@ export async function GET() {
   ]);
 
   const checks: Record<string, "ok" | "error"> = {
-    supabase_env: supabaseUrl && serviceRoleKey ? "ok" : "error",
+    supabase_env: Boolean(supabaseUrl && serviceRoleKey) ? "ok" : "error",
   };
 
   if (checks.supabase_env === "ok") {
     try {
-      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      const supabase = createClient(supabaseUrl!, serviceRoleKey!, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
 
