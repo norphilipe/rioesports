@@ -16,6 +16,9 @@ export async function GET() {
 
   if (checks.supabase_env === "ok") {
     try {
+      if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error("Supabase runtime environment is incomplete.");
+      }
       const supabase = createClient(supabaseUrl, serviceRoleKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
