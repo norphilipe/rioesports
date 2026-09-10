@@ -39,19 +39,29 @@ jobs:
         run: |
           npx wrangler deployments list --name rioesports
           npx wrangler secret list --name rioesports > /tmp/secrets.json
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/rioesports/settings" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            > /tmp/settings.json
           echo 'Configured secret names:'
-          cat /tmp/secrets.json
+          node -e "const d=require('/tmp/secrets.json'); console.log(d.map(x=>x.name).join('\\n'))"
+          echo 'Configured binding names/types:'
+          node -e "const d=require('/tmp/settings.json'); if(!d.success) { console.error(JSON.stringify(d)); process.exit(1) }; for (const b of (d.result?.bindings||[])) console.log(b.name + ' (' + b.type + ')')"
       - name: Assert required production configuration
         run: |
           required=(NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY)
-          names=$(node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/secrets.json','utf8')); console.log(d.map(x=>x.name).join(' '))")
+          secret_names=$(node -e "const d=require('/tmp/secrets.json'); console.log(d.map(x=>x.name).join(' '))")
+          binding_names=$(node -e "const d=require('/tmp/settings.json'); console.log((d.result?.bindings||[]).map(x=>x.name).join(' '))")
           missing=0
           for name in "${required[@]}"; do
-            if ! echo " $names " | grep -q " $name "; then
+            if echo " $secret_names " | grep -q " $name "; then
+              echo "OK secret: $name"
+            elif echo " $binding_names " | grep -q " $name "; then
+              echo "OK binding: $name"
+            else
               echo "MISSING: $name"
               missing=1
-            else
-              echo "OK: $name"
             fi
           done
           exit $missing
