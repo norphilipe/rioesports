@@ -18,7 +18,13 @@ function value(formData: FormData, name: string) {
 
 async function getOrigin() {
   const headersList = await headers();
-  return headersList.get("origin") ?? "http://localhost:3000";
+  const forwardedHost = headersList.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || headersList.get("host")?.split(",")[0]?.trim();
+  const forwardedProto = headersList.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProto === "http" || forwardedProto === "https" ? forwardedProto : host?.startsWith("localhost") ? "http" : "https";
+
+  if (host) return `${protocol}://${host}`;
+  return process.env.NODE_ENV === "production" ? "https://rioesports.com.br" : "http://localhost:3000";
 }
 
 export async function signUpAction(_: AuthActionState, formData: FormData): Promise<AuthActionState> {
