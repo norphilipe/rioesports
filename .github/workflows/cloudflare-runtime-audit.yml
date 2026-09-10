@@ -45,9 +45,24 @@ jobs:
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H 'Content-Type: application/json' \
             > /tmp/settings.json
-          curl --fail-with-body --silent --show-error \
-            https://rioesports.norphilipe.workers.dev/api/health \
-            > /tmp/health.json
+          health_ok=0
+          for attempt in 1 2 3 4 5; do
+            status_code="$(curl --silent --show-error --max-time 20 \
+              --output /tmp/health.json \
+              --write-out "%{http_code}" \
+              https://rioesports.norphilipe.workers.dev/api/health)"
+            if [ "$status_code" -ge 200 ] && [ "$status_code" -lt 300 ]; then
+              health_ok=1
+              break
+            fi
+            echo "Production health returned HTTP $status_code (attempt $attempt/5); retrying..." >&2
+            sleep 5
+          done
+          if [ "$health_ok" -ne 1 ]; then
+            cat /tmp/health.json >&2 || true
+            echo 'Production health endpoint did not become ready.' >&2
+            exit 1
+          fi
           echo 'Configured secret names:'
           node -e "const d=require('/tmp/secrets.json'); console.log(d.map(x=>x.name).join('\\n'))"
           echo 'Configured binding names/types:'
