@@ -102,3 +102,36 @@ export async function updatePasswordAction(_: AuthActionState, formData: FormDat
   if (error) return { error: error.message };
   redirect("/perfil");
 }
+
+export async function updateProfileAction(_: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const username = normalizeUsername(value(formData, "username"));
+  const displayName = value(formData, "display_name");
+  const city = value(formData, "city");
+
+  if (!validateUsername(username).ok) return { error: "Nome de usuário inválido." };
+  if (displayName.length < 2 || displayName.length > 60) return { error: "O nome de exibição deve ter entre 2 e 60 caracteres." };
+
+  const validCities = new Set([
+    "Angra dos Reis","Aperibé","Araruama","Areal","Armação dos Búzios","Arraial do Cabo","Barra do Piraí","Barra Mansa","Belford Roxo","Bom Jardim","Bom Jesus do Itabapoana","Cabo Frio","Cachoeiras de Macacu","Cambuci","Campos dos Goytacazes","Cantagalo","Carapebus","Cardoso Moreira","Carmo","Casimiro de Abreu","Comendador Levy Gasparian","Conceição de Macabu","Cordeiro","Duas Barras","Duque de Caxias","Engenheiro Paulo de Frontin","Guapimirim","Iguaba Grande","Itaboraí","Itaguaí","Italva","Itaocara","Itaperuna","Itatiaia","Japeri","Laje do Muriaé","Macaé","Macuco","Magé","Mangaratiba","Maricá","Mendes","Mesquita","Miguel Pereira","Miracema","Natividade","Nilópolis","Niterói","Nova Friburgo","Nova Iguaçu","Paracambi","Paraíba do Sul","Paraty","Paty do Alferes","Petrópolis","Pinheiral","Piraí","Porciúncula","Porto Real","Quatis","Queimados","Quissamã","Resende","Rio Bonito","Rio Claro","Rio das Flores","Rio das Ostras","Rio de Janeiro","Santa Maria Madalena","Santo Antônio de Pádua","São Fidélis","São Francisco de Itabapoana","São Gonçalo","São João da Barra","São João de Meriti","São José de Ubá","São José do Vale do Rio Preto","São Pedro da Aldeia","São Sebastião do Alto","Sapucaia","Saquarema","Seropédica","Silva Jardim","Sumidouro","Tanguá","Teresópolis","Trajano de Moraes","Três Rios","Valença","Varre-Sai","Vassouras","Volta Redonda"
+  ]);
+
+  const normalizedCity = city === "NA" ? "NA" : city;
+  if (normalizedCity !== "NA" && !validCities.has(normalizedCity)) return { error: "Selecione um município válido do estado do Rio de Janeiro ou NA." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Sua sessão expirou." };
+
+  const { data: existing } = await supabase.from("profiles").select("id").eq("username", username).neq("id", user.id).maybeSingle();
+  if (existing) return { error: "Esse nome de usuário já está em uso." };
+
+  const { error } = await supabase.from("profiles").update({
+    username,
+    display_name: displayName,
+    city: normalizedCity,
+    state_code: normalizedCity === "NA" ? null : "RJ",
+  }).eq("id", user.id);
+
+  if (error) return { error: "Não foi possível salvar seu perfil." };
+  redirect("/perfil?profile=saved");
+}
