@@ -9,6 +9,7 @@ on:
       - 'wrangler.toml'
       - 'wrangler.json'
       - 'wrangler.jsonc'
+      - 'src/app/api/health/**'
 
 permissions:
   contents: read
