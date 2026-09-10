@@ -45,24 +45,22 @@ jobs:
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H 'Content-Type: application/json' \
             > /tmp/settings.json
+          curl --fail-with-body --silent --show-error \
+            https://rioesports.norphilipe.workers.dev/api/health \
+            > /tmp/health.json
           echo 'Configured secret names:'
           node -e "const d=require('/tmp/secrets.json'); console.log(d.map(x=>x.name).join('\\n'))"
           echo 'Configured binding names/types:'
           node -e "const d=require('/tmp/settings.json'); if(!d.success) { console.error(JSON.stringify(d)); process.exit(1) }; for (const b of (d.result?.bindings||[])) console.log(b.name + ' (' + b.type + ')')"
+          echo 'Production health:'
+          cat /tmp/health.json
       - name: Assert required production configuration
         run: |
-          required=(NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY)
           secret_names=$(node -e "const d=require('/tmp/secrets.json'); console.log(d.map(x=>x.name).join(' '))")
-          binding_names=$(node -e "const d=require('/tmp/settings.json'); console.log((d.result?.bindings||[]).map(x=>x.name).join(' '))")
-          missing=0
-          for name in "${required[@]}"; do
-            if echo " $secret_names " | grep -q " $name "; then
-              echo "OK secret: $name"
-            elif echo " $binding_names " | grep -q " $name "; then
-              echo "OK binding: $name"
-            else
-              echo "MISSING: $name"
-              missing=1
-            fi
-          done
-          exit $missing
+          if echo " $secret_names " | grep -q ' SUPABASE_SERVICE_ROLE_KEY '; then
+            echo 'OK secret: SUPABASE_SERVICE_ROLE_KEY'
+          else
+            echo 'MISSING: SUPABASE_SERVICE_ROLE_KEY'
+            exit 1
+          fi
+          node -e "const d=require('/tmp/health.json'); if (d.ok !== true || d.checks?.supabase_env !== 'ok' || d.checks?.database !== 'ok') { console.error(JSON.stringify(d)); process.exit(1) }; console.log('OK runtime health: Supabase environment and database')"
