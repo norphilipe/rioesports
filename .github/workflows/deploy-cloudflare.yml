@@ -12,9 +12,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  FACEIT_REDIRECT_URI: https://rioesports.com.br/api/auth/faceit/callback
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -26,80 +23,6 @@ jobs:
           node-version: '22'
       - run: npm install
       - run: npm run build:next
-      - name: Restore and validate runtime variables
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-          const token = process.env.CLOUDFLARE_API_TOKEN;
-          const apiBase = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/rioesports`;
-          const supabaseRequired = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'];
-          const fallbackVersions = [
-            '2df1a85c-9b7a-449e-bfb1-8b41e024460f',
-            'ea79279a-b7e5-41e2-aed8-cdc3cdfc7aff',
-          ];
-
-          async function api(path) {
-            const response = await fetch(`${apiBase}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-            const body = await response.json();
-            if (!response.ok || body.success === false) throw new Error(`Cloudflare API ${response.status}: ${JSON.stringify(body.errors || body)}`);
-            return body.result;
-          }
-
-          function bindingsFrom(detail) { return detail?.resources?.bindings || detail?.bindings || []; }
-          function valuesFrom(bindings) {
-            return Object.fromEntries(bindings.filter((b) => b.type === 'plain_text').map((b) => [b.name, b.text]));
-          }
-          function requiredPresent(values, names) { return names.every((name) => typeof values[name] === 'string' && values[name].length > 0); }
-
-          function writeVars(values) {
-            const configPath = 'wrangler.jsonc';
-            const config = fs.readFileSync(configPath, 'utf8');
-            const vars = JSON.stringify(values, null, 2).replace(/^/gm, '  ');
-            const varsBlock = `  "vars": ${vars},\n`;
-            const updated = config.includes('"vars"')
-              ? config.replace(/  "vars": \{[\s\S]*?\n  \},\n/, varsBlock)
-              : config.replace('  "keep_vars": true,\n', `${varsBlock}  "keep_vars": true,\n`);
-            fs.writeFileSync(configPath, updated);
-          }
-
-          (async () => {
-            if (!accountId || !token) throw new Error('Cloudflare credentials are missing.');
-            const versionList = await api('/versions?per_page=50');
-            const versions = Array.isArray(versionList) ? versionList : (versionList?.versions || versionList?.result || []);
-            const candidates = [...versions.map((v) => v.id).filter(Boolean), ...fallbackVersions];
-            const seen = new Set();
-            let restored;
-            for (const versionId of candidates) {
-              if (seen.has(versionId)) continue;
-              seen.add(versionId);
-              try {
-                const values = valuesFrom(bindingsFrom(await api(`/versions/${versionId}`)));
-                if (requiredPresent(values, supabaseRequired)) {
-                  writeVars({
-                    NEXT_PUBLIC_SUPABASE_URL: values.NEXT_PUBLIC_SUPABASE_URL,
-                    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: values.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-                    ...(values.FACEIT_OAUTH_CLIENT_ID ? { FACEIT_OAUTH_CLIENT_ID: values.FACEIT_OAUTH_CLIENT_ID } : {}),
-                    FACEIT_OAUTH_REDIRECT_URI: values.FACEIT_OAUTH_REDIRECT_URI || process.env.FACEIT_REDIRECT_URI,
-                  });
-                  restored = values;
-                  console.log(`Restored Supabase runtime variables from Worker version ${versionId}.`);
-                  break;
-                }
-              } catch { /* continue searching */ }
-            }
-            if (!restored) throw new Error('Could not find a deployed Worker version containing the required Supabase runtime variables. Refusing to deploy.');
-
-            const current = valuesFrom(bindingsFrom(await api('/settings')));
-            const merged = { ...restored, ...current };
-            if (!merged.FACEIT_OAUTH_CLIENT_ID) throw new Error('FACEIT_OAUTH_CLIENT_ID is missing from the production Worker. Configure it before deploying.');
-            if (merged.FACEIT_OAUTH_REDIRECT_URI !== process.env.FACEIT_REDIRECT_URI) throw new Error(`FACEIT_OAUTH_REDIRECT_URI must be exactly ${process.env.FACEIT_REDIRECT_URI}.`);
-            console.log('FACEIT public OAuth configuration validated.');
-          })().catch((error) => { console.error(error.message); process.exit(1); });
-          NODE
       - name: Verify required Cloudflare secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
@@ -115,7 +38,8 @@ jobs:
             console.log(`OK secret: ${name}`);
           }
           NODE
-      - uses: cloudflare/wrangler-action@v3
+      - name: Deploy Worker while preserving dashboard runtime variables
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
