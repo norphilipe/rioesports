@@ -24,7 +24,7 @@ async function getOrigin() {
   const protocol = forwardedProto === "http" || forwardedProto === "https" ? forwardedProto : host?.startsWith("localhost") ? "http" : "https";
 
   if (host) return `${protocol}://${host}`;
-  return process.env.NODE_ENV === "production" ? "https://rioesports.com.br" : "http://localhost:3000";
+  return process.env.NODE_ENV === "production" ? "https://rioesportes.com.br" : "http://localhost:3000";
 }
 
 export async function signUpAction(_: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -121,9 +121,12 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) fail("Sua sessão expirou.");
+  if (!user) {
+    redirect(`/perfil?profile=error&message=${encodeURIComponent("Sua sessão expirou.")}`);
+  }
 
-  const { data: existing } = await supabase.from("profiles").select("id").eq("username", username).neq("id", user.id).maybeSingle();
+  const userId = user.id;
+  const { data: existing } = await supabase.from("profiles").select("id").eq("username", username).neq("id", userId).maybeSingle();
   if (existing) fail("Esse nome de usuário já está em uso.");
 
   const { error } = await supabase.from("profiles").update({
@@ -131,7 +134,7 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
     display_name: displayName,
     city: normalizedCity,
     state_code: normalizedCity === "N/A" ? null : "RJ",
-  }).eq("id", user.id);
+  }).eq("id", userId);
 
   if (error) fail("Não foi possível salvar seu perfil.");
   redirect("/perfil?profile=saved");
