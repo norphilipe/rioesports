@@ -6,6 +6,7 @@ const TOKEN_ENDPOINT = "https://api.faceit.com/auth/v1/oauth/token";
 const USERINFO_ENDPOINT = "https://api.faceit.com/auth/v1/resources/userinfo";
 const STATE_COOKIE = "rio_faceit_oauth_state";
 const VERIFIER_COOKIE = "rio_faceit_oauth_verifier";
+const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
 
 type FaceitTokenResponse = { access_token?: string };
 type FaceitUserInfo = { sub?: string; nickname?: string };
@@ -18,7 +19,12 @@ function profileRedirect(request: Request, status: string) {
 
 function clearOAuthCookies(response: NextResponse) {
   for (const name of [STATE_COOKIE, VERIFIER_COOKIE]) {
-    response.cookies.set(name, "", { httpOnly: true, path: "/api/auth/faceit", maxAge: 0 });
+    response.cookies.set(name, "", {
+      domain: AUTH_COOKIE_DOMAIN,
+      httpOnly: true,
+      path: "/api/auth/faceit",
+      maxAge: 0,
+    });
   }
 }
 
