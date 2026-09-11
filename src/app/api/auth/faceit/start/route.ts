@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     authorizationUrl.searchParams.set("response_type", "code");
     authorizationUrl.searchParams.set("client_id", clientId);
     authorizationUrl.searchParams.set("redirect_uri", redirectUri);
-    authorizationUrl.searchParams.set("scope", "openid email membership profile");
+    authorizationUrl.searchParams.set("scope", "openid");
     authorizationUrl.searchParams.set("state", state);
     authorizationUrl.searchParams.set("code_challenge", codeChallenge);
     authorizationUrl.searchParams.set("code_challenge_method", "S256");
