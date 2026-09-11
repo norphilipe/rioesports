@@ -5,13 +5,17 @@ import { getRuntimeEnvValue } from "@/lib/env/runtime";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [supabaseUrl, serviceRoleKey] = await Promise.all([
+  const [supabaseUrl, serviceRoleKey, faceitClientId, faceitRedirectUri, faceitClientSecret] = await Promise.all([
     getRuntimeEnvValue("NEXT_PUBLIC_SUPABASE_URL"),
     getRuntimeEnvValue("SUPABASE_SERVICE_ROLE_KEY"),
+    getRuntimeEnvValue("FACEIT_OAUTH_CLIENT_ID"),
+    getRuntimeEnvValue("FACEIT_OAUTH_REDIRECT_URI"),
+    getRuntimeEnvValue("FACEIT_OAUTH_CLIENT_SECRET"),
   ]);
 
   const checks: Record<string, "ok" | "error"> = {
     supabase_env: Boolean(supabaseUrl && serviceRoleKey) ? "ok" : "error",
+    faceit_oauth: Boolean(faceitClientId && faceitRedirectUri && faceitClientSecret) ? "ok" : "error",
   };
 
   if (checks.supabase_env === "ok") {
