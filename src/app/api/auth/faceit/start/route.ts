@@ -5,6 +5,7 @@ import { getFaceitStartConfig } from "@/lib/env/faceit";
 const FACEIT_AUTHORIZATION_ENDPOINT = "https://accounts.faceit.com";
 const STATE_COOKIE = "rio_faceit_oauth_state";
 const VERIFIER_COOKIE = "rio_faceit_oauth_verifier";
+const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
 
 function base64Url(bytes: Uint8Array) {
   let binary = "";
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
 
     const response = NextResponse.redirect(authorizationUrl);
     const cookieOptions = {
+      domain: AUTH_COOKIE_DOMAIN,
       httpOnly: true,
       secure: new URL(request.url).protocol === "https:",
       sameSite: "lax" as const,
