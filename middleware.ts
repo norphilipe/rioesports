@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicSupabaseRuntimeEnv } from "@/lib/env/public-runtime";
 
+const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -15,6 +17,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
+    cookieOptions: {
+      domain: AUTH_COOKIE_DOMAIN,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -22,7 +27,9 @@ export async function middleware(request: NextRequest) {
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, { ...options, domain: AUTH_COOKIE_DOMAIN }),
+        );
       },
     },
   });
