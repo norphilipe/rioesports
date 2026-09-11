@@ -24,8 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run build:next
       - name: Restore and validate runtime variables
         env:
@@ -38,7 +37,6 @@ jobs:
           const token = process.env.CLOUDFLARE_API_TOKEN;
           const apiBase = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/rioesports`;
           const supabaseRequired = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'];
-          const faceitPlainRequired = ['FACEIT_OAUTH_CLIENT_ID', 'FACEIT_OAUTH_REDIRECT_URI'];
           const fallbackVersions = [
             '2df1a85c-9b7a-449e-bfb1-8b41e024460f',
             'ea79279a-b7e5-41e2-aed8-cdc3cdfc7aff',
