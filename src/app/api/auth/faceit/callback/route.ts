@@ -4,8 +4,8 @@ import { getFaceitCallbackConfig } from "@/lib/env/faceit";
 
 const TOKEN_ENDPOINT = "https://api.faceit.com/auth/v1/oauth/token";
 const USERINFO_ENDPOINT = "https://api.faceit.com/auth/v1/resources/userinfo";
-const STATE_COOKIE = "rio_faceit_oauth_state";
-const VERIFIER_COOKIE = "rio_faceit_oauth_verifier";
+const STATE_COOKIE = "rio_faceit_oauth_state_v2";
+const VERIFIER_COOKIE = "rio_faceit_oauth_verifier_v2";
 const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
 
 type FaceitTokenResponse = { access_token?: string };
