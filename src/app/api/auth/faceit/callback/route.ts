@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const providerError = request.nextUrl.searchParams.get("error");
   const code = request.nextUrl.searchParams.get("code");
   const receivedState = request.nextUrl.searchParams.get("state");
+  // Keep FACEIT OAuth state isolated from every previous cookie generation.
   const expectedState = request.cookies.get(STATE_COOKIE)?.value;
   const codeVerifier = request.cookies.get(VERIFIER_COOKIE)?.value;
 
