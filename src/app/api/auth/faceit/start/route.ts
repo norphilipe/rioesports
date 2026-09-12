@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getFaceitStartConfig } from "@/lib/env/faceit";
 
 const FACEIT_AUTHORIZATION_ENDPOINT = "https://accounts.faceit.com";
-const STATE_COOKIE = "rio_faceit_oauth_state";
-const VERIFIER_COOKIE = "rio_faceit_oauth_verifier";
+const STATE_COOKIE = "rio_faceit_oauth_state_v2";
+const VERIFIER_COOKIE = "rio_faceit_oauth_verifier_v2";
 const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
 
 function base64Url(bytes: Uint8Array) {

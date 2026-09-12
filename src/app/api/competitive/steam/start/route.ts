@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login";
+const STEAM_STATE_COOKIE = "rio_steam_link_state_v2";
+const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -25,7 +27,8 @@ export async function GET(request: Request) {
   openIdUrl.searchParams.set("openid.claimed_id", "http://specs.openid.net/auth/2.0/identifier_select");
 
   const response = NextResponse.redirect(openIdUrl);
-  response.cookies.set("rio_steam_link_state", nonce, {
+  response.cookies.set(STEAM_STATE_COOKIE, nonce, {
+    domain: AUTH_COOKIE_DOMAIN,
     httpOnly: true,
     secure: new URL(request.url).protocol === "https:",
     sameSite: "lax",

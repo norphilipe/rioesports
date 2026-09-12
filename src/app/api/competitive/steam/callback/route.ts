@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login";
+const STEAM_STATE_COOKIE = "rio_steam_link_state_v2";
+const AUTH_COOKIE_DOMAIN = "rioesports.com.br";
 
 function profileRedirect(request: Request, status: "linked" | "error") {
   const url = new URL("/perfil", request.url);
@@ -11,9 +13,7 @@ function profileRedirect(request: Request, status: "linked" | "error") {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const expectedState = request.headers
-    .get("cookie")
-    ?.match(/(?:^|; )rio_steam_link_state=([^;]+)/)?.[1];
+  const expectedState = request.cookies.get(STEAM_STATE_COOKIE)?.value;
   const receivedState = url.searchParams.get("state");
 
   if (!expectedState || !receivedState || expectedState !== receivedState) {
@@ -63,7 +63,8 @@ export async function GET(request: Request) {
   });
 
   const response = NextResponse.redirect(profileRedirect(request, error ? "error" : "linked"));
-  response.cookies.set("rio_steam_link_state", "", {
+  response.cookies.set(STEAM_STATE_COOKIE, "", {
+    domain: AUTH_COOKIE_DOMAIN,
     httpOnly: true,
     path: "/api/competitive/steam",
     maxAge: 0,
