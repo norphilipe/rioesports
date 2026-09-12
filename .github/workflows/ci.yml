@@ -17,6 +17,16 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run lint
-      - run: npm run typecheck
+      - name: Typecheck
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee /tmp/typecheck.log
+      - name: Upload typecheck diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-diagnostics-${{ github.run_id }}
+          path: /tmp/typecheck.log
+          if-no-files-found: error
       - run: npm run build
       - run: npm run build:next
