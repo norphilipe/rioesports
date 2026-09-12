@@ -65,3 +65,5 @@ FACEIT webhook
 ```
 
 Discord failures are intentionally best-effort: a Discord outage/configuration error must not cause a valid FACEIT event to be marked as failed.
+
+CI validates the branch with TypeScript and ESLint before merge.
