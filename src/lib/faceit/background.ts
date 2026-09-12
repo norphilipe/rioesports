@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireRuntimeEnvValue } from "@/lib/env/runtime";
 import { classifyFaceitEvent, extractFaceitEntityId } from "@/lib/faceit/events";
 import { synchronizeAndQueueFaceitEvent } from "@/lib/faceit/sync-and-project";
+import { notifyRjvalsMatch } from "@/lib/rjvals/discord-notifications";
 
 async function getAdminClient() {
   const [url, serviceRoleKey] = await Promise.all([
@@ -36,6 +37,22 @@ export async function processFaceitEvents() {
     if (!claimed) continue;
     try {
       const sync = await synchronizeAndQueueFaceitEvent(eventType, payload);
+      const entityId = extractFaceitEntityId(payload);
+
+      // Discord is an optional side effect: a Discord outage/configuration issue must never
+      // prevent the FACEIT event from being marked processed.
+      if (entityId && classifyFaceitEvent(eventType) === "match" && (sync.action === "match_changed" || sync.action === "match_finished")) {
+        try {
+          await notifyRjvalsMatch(entityId, sync.action === "match_finished");
+        } catch (notificationError) {
+          console.error("RJVALS Discord notification failed", {
+            eventId: event.id,
+            matchId: entityId,
+            message: notificationError instanceof Error ? notificationError.message : "Unknown Discord error",
+          });
+        }
+      }
+
       const { error: completeError } = await supabase.from("faceit_webhook_events").update({ processing_status: sync.action === "ignored" ? "ignored" : "processed", processed_at: new Date().toISOString() }).eq("id", event.id);
       if (completeError) throw completeError;
       results.push({ id: event.id, status: "processed", action: sync.action });
