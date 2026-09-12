@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login";
@@ -11,7 +11,7 @@ function profileRedirect(request: Request, status: "linked" | "error") {
   return url;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const expectedState = request.cookies.get(STEAM_STATE_COOKIE)?.value;
   const receivedState = url.searchParams.get("state");
