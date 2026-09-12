@@ -22,7 +22,17 @@ jobs:
         with:
           node-version: '22'
       - run: npm install
-      - run: npm run build:next
+      - name: Build Next/OpenNext
+        run: |
+          set -o pipefail
+          npm run build:next 2>&1 | tee /tmp/build-next.log
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-next-diagnostics-${{ github.run_id }}
+          path: /tmp/build-next.log
+          if-no-files-found: error
       - name: Verify required Cloudflare secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
