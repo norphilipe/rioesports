@@ -8,11 +8,12 @@ export type FaceitProcessResult = {
 
 export function planFaceitEvent(eventType: string | null, payload: unknown): FaceitProcessResult {
   const kind = classifyFaceitEvent(eventType);
-  const normalized = eventType?.toLowerCase() ?? "";
+  const normalized = eventType?.trim().toLowerCase() ?? "";
   const entityId = extractFaceitEntityId(payload);
 
   if (kind === "match") {
-    return { kind, entityId, action: normalized === "match_finished" ? "match_finished" : "match_changed" };
+    const finished = normalized === "match_status_finished" || normalized === "match_finished";
+    return { kind, entityId, action: finished ? "match_finished" : "match_changed" };
   }
   if (kind === "tournament") return { kind, entityId, action: "tournament_changed" };
   if (kind === "championship") return { kind, entityId, action: "championship_changed" };
